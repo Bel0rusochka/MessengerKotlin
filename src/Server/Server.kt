@@ -1,12 +1,14 @@
 package Server
 
+import java.awt.TrayIcon
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import java.time.Instant
-import kotlin.concurrent.thread
+import TypeMessage
+
 
 
 class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataOutputStream){
@@ -22,20 +24,47 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
         dataOut.writeUTF("Success|$timestamp")
 
     }
-    fun getName(): String{
+    fun getUsername(): String{
         return this.userName
     }
 
-    fun sendMessage(msg: String){
-
+    fun getPassword(): String{
+        return this.password
     }
+
+
+    fun sendMessage(typeMessage: TypeMessage, msg: String?=null){
+        val timestamp = Instant.now()
+        when (typeMessage) {
+            TypeMessage.BYE -> {
+                this.dataOut.writeUTF("Bye|$timestamp")
+            }
+            TypeMessage.RESPONSE -> {
+                this.dataOut.writeUTF("Response|$msg|$timestamp")
+                if (!checkSuccess()){
+                    throw Exception("Send Error")
+                }
+            }
+            TypeMessage.SUCCESS -> {
+                this.dataOut.writeUTF("Success|$timestamp")
+            }
+            else -> {
+                throw Exception("Error type")
+            }
+        }
+    }
+
+    private fun checkSuccess(): Boolean{
+        return this.dataIn.readUTF().split("|")[0] == "Success"
+    }
+
     fun closeConnect(){
 
     }
 }
 
 class Server(private val port: Int){
-    var userClient: ArrayList<Client> = arrayListOf()
+    private var userClient: ArrayList<Client> = arrayListOf()
     private val serverSocket = ServerSocket(this.port)
     private fun connect(): Client{
         val clientSocket = this.serverSocket.accept()
@@ -49,8 +78,7 @@ class Server(private val port: Int){
 
     private fun closeConnection(client: Client){
         try {
-            val timestamp = Instant.now()
-            client.dataOut.writeUTF("Bye|$timestamp")
+            client.sendMessage(typeMessage = TypeMessage.BYE)
             client.dataIn.close()
             client.dataOut.close()
             client.socket.close()
@@ -69,15 +97,10 @@ class Server(private val port: Int){
                         val clientMessage = client.dataIn.readUTF()
                         println(clientMessage)
                         if(clientMessage.split("|")[0] == "Bye"){
+                            client.sendMessage(typeMessage = TypeMessage.BYE)
                             break
                         }else{
-                            val timestamp = Instant.now()
-                            client.dataOut.writeUTF("Success|$timestamp")
-                            println(this.userClient.size)
-                            if (this.userClient.size == 2){
-                                this.userClient[1].dataOut.writeUTF("Loch")
-                            }
-
+                            client.sendMessage(typeMessage = TypeMessage.SUCCESS)
                         }
                     }
                 }finally {
@@ -89,6 +112,5 @@ class Server(private val port: Int){
 }
 
 fun main() {
-    val server = Server(5001)
-    server.run()
+    Server(5001).run()
 }
