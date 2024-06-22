@@ -10,17 +10,18 @@ import TypeMessage
 val scanner = Scanner(System.`in`)
 val buffer = BufferedReader(InputStreamReader(System.`in`))
 
-class Client(val name: String, val password: String, val host: String, val port: Int) {
-    var socket: Socket? = null
-    var dataIn:DataInputStream? = null
-    var dataOut:DataOutputStream? = null
+class Client(private val name: String, private val password: String, private val host: String, private val port: Int) {
+    private var socket: Socket? = null
+    private var dataIn: DataInputStream? = null
+    private var dataOut: DataOutputStream? = null
 
-    fun initConnection():Boolean{
+    private fun initConnection(): Boolean {
         return try {
             this.socket = Socket()
             this.socket!!.connect(InetSocketAddress(this.host, this.port), 1000)
             this.dataOut = DataOutputStream(socket!!.getOutputStream())
             this.dataIn = DataInputStream(socket!!.getInputStream())
+            sendMessage(TypeMessage.START)
             true
         } catch (e: IOException) {
             println("Connection Failed: ${e.message}")
@@ -39,74 +40,83 @@ class Client(val name: String, val password: String, val host: String, val port:
         }
     }
 
-    fun sendMessage(typeMessage: TypeMessage, msg: String?=null,to: String?=null){
+    private fun sendMessage(typeMessage: TypeMessage, msg: String? = null, to: String? = null) {
         val timestamp = Instant.now()
-        when (typeMessage) {
-            TypeMessage.BYE -> {
-                this.dataOut?.writeUTF("Bye|$timestamp")
-                if (!checkResponse(TypeMessage.BYE)){
-                    throw Exception("Response Error")
+        try {
+            when (typeMessage) {
+                TypeMessage.BYE -> {
+                    this.dataOut?.writeUTF("Bye|$timestamp")
+                }
+
+                TypeMessage.START -> {
+                    this.dataOut?.writeUTF("Start|${this.name}|${password}|$timestamp")
+                }
+
+                TypeMessage.SEND -> {
+                    this.dataOut?.writeUTF("Send|$msg|$to|$timestamp")
+                }
+
+                else -> {
+                    throw Exception("Error type")
                 }
             }
-            TypeMessage.SUCCESS -> {
-                this.dataOut?.writeUTF("Success|$timestamp")
-            }
-            TypeMessage.START -> {
-                this.dataOut?.writeUTF("Start|${this.name}|${password}|$timestamp")
-                if (!checkResponse(TypeMessage.SUCCESS)){
-                    throw Exception("Response Error")
+        }catch (e:Exception){
+            e.printStackTrace()
+        }
+
+    }
+    fun isMessageFromServer(): Boolean {
+        return this.dataIn!!.available() > 0
+    }
+
+    fun getMessageFromServer():List<String>{
+        val msg = this.dataIn?.readUTF()
+        println("Message from server: $msg")
+        return msg!!.split("|")
+    }
+
+    fun isMessageToServer(): Boolean {
+        return buffer.ready()
+    }
+
+
+    private fun communicationWithServer(){
+
+        try {
+            var timeStart = System.currentTimeMillis()
+            while (true) {
+                if (this.isMessageToServer()) {
+                    this.sendMessage(TypeMessage.SEND, scanner.nextLine(), "Anton228")
+                    timeStart = System.currentTimeMillis()
                 }
-            }
-            TypeMessage.SEND -> {
-                this.dataOut?.writeUTF("Send|$msg|$to|$timestamp")
-                if (!checkResponse(TypeMessage.SUCCESS)){
-                    throw Exception("Response Error")
+
+                if(this.isMessageFromServer()) {
+                    val msgList = this.getMessageFromServer()
+                    timeStart = System.currentTimeMillis()
+                    if(msgList[0]=="Bye") break
                 }
+
+                if (System.currentTimeMillis() - timeStart > 10000 )break
+
             }
-            else -> {
-                throw Exception("Error type")
-            }
+        } finally {
+            closeConnection()
         }
     }
 
-    private fun checkResponse(type:TypeMessage):Boolean{
-        return when(type){
-            TypeMessage.BYE -> {
-                this.dataIn?.readUTF()!!.split("|")[0] == "Bye"
-            }
-
-            TypeMessage.SUCCESS -> {
-                this.dataIn?.readUTF()!!.split("|")[0] == "Success"
-            }else -> {
-                false
-            }
-        }
-    }
-
-    fun run(){
+    fun run() {
         while (true) {
-            if (buffer.ready()){
-                if(this.initConnection()){
-                    this.sendMessage(TypeMessage.START)
-                    try {
-                        var timeStart = System.currentTimeMillis()
-                        while (true){
-                            if(buffer.ready()){
-                                sendMessage(TypeMessage.SEND, scanner.nextLine(), "Anton228")
-                                timeStart = System.currentTimeMillis()
-                            }else if(System.currentTimeMillis()- timeStart  > 10000) {
-                                break
-                            }
-                        }
-                    }finally {
-                        this.closeConnection()
-                    }
-                }else{
+            if (buffer.ready()) {
+                if (initConnection()) {
+                    this.communicationWithServer()
+                } else {
                     sleep(10000)
                 }
             }
         }
     }
+
+
 }
 
 fun main() {
