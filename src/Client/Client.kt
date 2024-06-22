@@ -18,7 +18,7 @@ class Client(private val name: String, private val password: String, private val
     private fun initConnection(): Boolean {
         return try {
             this.socket = Socket()
-            this.socket!!.connect(InetSocketAddress(this.host, this.port), 1000)
+            this.socket!!.connect(InetSocketAddress(this.host, 5001), 1000)
             this.dataOut = DataOutputStream(socket!!.getOutputStream())
             this.dataIn = DataInputStream(socket!!.getInputStream())
             sendMessage(TypeMessage.START)
@@ -86,7 +86,7 @@ class Client(private val name: String, private val password: String, private val
             var timeStart = System.currentTimeMillis()
             while (true) {
                 if (this.isMessageToServer()) {
-                    this.sendMessage(TypeMessage.SEND, scanner.nextLine(), "Anton228")
+                    this.sendMessage(TypeMessage.SEND, scanner.nextLine(), "AndreiKulinkovich")
                     timeStart = System.currentTimeMillis()
                 }
 
@@ -120,5 +120,5 @@ class Client(private val name: String, private val password: String, private val
 }
 
 fun main() {
-    Client("AndreiKulinkovich","229", "127.0.0.1",5001).run()
+    Client("Anton228","229", "127.0.0.1",5001).run()
 }

@@ -9,17 +9,17 @@ import java.net.Socket
 import java.time.Instant
 import TypeMessage
 
-
+class ExitException(message: String) : Exception(message)
 
 class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataOutputStream){
     private var userName: String = ""
     private var password: String = ""
 
-    init {
-        val clientRegister = this.dataIn.readUTF().split("|")
-        println("ClientRegister: $clientRegister")
-        this.userName = clientRegister[1]
-        this.password = clientRegister[2]
+    fun setName(name: String){
+        this.userName = name
+    }
+    fun setPassword(password: String){
+        this.password = password
     }
     fun getUsername(): String{
         return this.userName
@@ -30,24 +30,19 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
     }
 
 
-    fun sendMessage(typeMessage: TypeMessage, msg: String?=null){
+    fun sendMessage(typeMessage: TypeMessage, msg: String?=null,srcClient: String?=null){
         val timestamp = Instant.now()
         when (typeMessage) {
             TypeMessage.BYE -> {
                 this.dataOut.writeUTF("Bye|$timestamp")
             }
             TypeMessage.RESPONSE -> {
-                this.dataOut.writeUTF("Response|$msg|$timestamp")
+                this.dataOut.writeUTF("Response|$msg|$srcClient|$timestamp")
             }
             else -> {
-                println(234234)
                 throw Exception("Error type")
             }
         }
-    }
-
-    fun closeConnect(){
-
     }
 }
 
@@ -57,10 +52,8 @@ class Server(private val port: Int){
 
     private fun connect(): Client{
         val clientSocket = this.serverSocket.accept()
-        val clientSocketIP = clientSocket.inetAddress.toString()
-        val clientSocketPort = clientSocket.port
-        println("[IP: $clientSocketIP ,Port: $clientSocketPort]  Client Connection Successful!")
         val newClient = Client(clientSocket,DataInputStream(clientSocket.getInputStream()), DataOutputStream(clientSocket.getOutputStream()))
+        this.processMessage(newClient)
         this.clientsArray.add(newClient)
         return newClient
     }
@@ -85,7 +78,32 @@ class Server(private val port: Int){
         }
 //        serverSocket.close()
     }
+    fun findClient(name: String): Client?{
+        clientsArray.forEach {
+            if(it.getUsername() == name) return it
+        }
+        return null
+    }
+    private fun processMessage(client: Client){
+        val msgList = client.dataIn.readUTF().split("|")
+        when(msgList[0]){
+            "Send"->{
+                println("Send message to ${msgList[2]}, body of message is ${msgList[1]}")
+                val dstClient = findClient(msgList[2])
+                dstClient?.sendMessage(TypeMessage.RESPONSE, msgList[1], client.getUsername())
+            }
+            "Bye"->{
+                println("Bye, bye ${client.getUsername()}")
+                throw ExitException("Client ${client.getUsername()} has disconnected.")
+            }
+            "Start"->{
+                client.setName(msgList[1])
+                client.setPassword(msgList[2])
+                println("User ${client.getUsername()} successfully registered")
+            }
+        }
 
+    }
     fun run(){
         Runtime.getRuntime().addShutdownHook(Thread {
             synchronized(this) {
@@ -99,13 +117,11 @@ class Server(private val port: Int){
                 try {
                     while (client.socket.isConnected) {
                         if(client.dataIn.available() > 0) {
-                            val clientMessage = client.dataIn.readUTF()
-                            println(clientMessage)
-                            if(clientMessage.split("|")[0] == "Bye"){
-                                break
-                            }
+                            processMessage(client)
                         }
                     }
+                }catch (e: ExitException) {
+                    println(e.message)
                 }finally{
                     this.closeConnection(client)
                 }
