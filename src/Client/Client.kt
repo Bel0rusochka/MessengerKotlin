@@ -10,16 +10,17 @@ import TypeMessage
 val scanner = Scanner(System.`in`)
 val buffer = BufferedReader(InputStreamReader(System.`in`))
 
-class Client(val name: String, val password: String) {
-    val socket: Socket = Socket()
+class Client(val name: String, val password: String, val host: String, val port: Int) {
+    var socket: Socket? = null
     var dataIn:DataInputStream? = null
     var dataOut:DataOutputStream? = null
 
-    fun initConnection(host: String, port: Int):Boolean{
+    fun initConnection():Boolean{
         return try {
-            this.socket.connect(InetSocketAddress(host, port), 1000)
-            this.dataOut = DataOutputStream(socket.getOutputStream())
-            this.dataIn = DataInputStream(socket.getInputStream())
+            this.socket = Socket()
+            this.socket!!.connect(InetSocketAddress(this.host, this.port), 1000)
+            this.dataOut = DataOutputStream(socket!!.getOutputStream())
+            this.dataIn = DataInputStream(socket!!.getInputStream())
             true
         } catch (e: IOException) {
             println("Connection Failed: ${e.message}")
@@ -27,23 +28,24 @@ class Client(val name: String, val password: String) {
         }
     }
 
-    fun closeConnection() {
+    private fun closeConnection() {
         try {
+            this.sendMessage(TypeMessage.BYE)
             this.dataIn?.close()
             this.dataOut?.close()
-            this.socket.close()
+            this.socket!!.close()
         } catch (e: IOException) {
             println("Failed to close connection: ${e.message}")
         }
     }
 
-    fun sendMessage(typeMessage: TypeMessage, msg: String?=null){
+    fun sendMessage(typeMessage: TypeMessage, msg: String?=null,to: String?=null){
         val timestamp = Instant.now()
         when (typeMessage) {
             TypeMessage.BYE -> {
                 this.dataOut?.writeUTF("Bye|$timestamp")
                 if (!checkResponse(TypeMessage.BYE)){
-                    throw Exception("Send Error")
+                    throw Exception("Response Error")
                 }
             }
             TypeMessage.SUCCESS -> {
@@ -52,13 +54,13 @@ class Client(val name: String, val password: String) {
             TypeMessage.START -> {
                 this.dataOut?.writeUTF("Start|${this.name}|${password}|$timestamp")
                 if (!checkResponse(TypeMessage.SUCCESS)){
-                    throw Exception("Send Error")
+                    throw Exception("Response Error")
                 }
             }
             TypeMessage.SEND -> {
-                this.dataOut?.writeUTF("Send|$msg|$timestamp")
+                this.dataOut?.writeUTF("Send|$msg|$to|$timestamp")
                 if (!checkResponse(TypeMessage.SUCCESS)){
-                    throw Exception("Send Error")
+                    throw Exception("Response Error")
                 }
             }
             else -> {
@@ -67,58 +69,46 @@ class Client(val name: String, val password: String) {
         }
     }
 
-    fun checkResponse(type:TypeMessage):Boolean{
-        when(type){
+    private fun checkResponse(type:TypeMessage):Boolean{
+        return when(type){
             TypeMessage.BYE -> {
-                return this.dataIn?.readUTF()!!.split("|")[0] == "Bye"
+                this.dataIn?.readUTF()!!.split("|")[0] == "Bye"
             }
+
             TypeMessage.SUCCESS -> {
-                return this.dataIn?.readUTF()!!.split("|")[0] == "Success"
+                this.dataIn?.readUTF()!!.split("|")[0] == "Success"
             }else -> {
-                return false
+                false
             }
         }
     }
-}
 
-
-fun sendMessage(scanner: Scanner, dataInputStream: DataInputStream, dataOutputStream: DataOutputStream, text:String="Send|${scanner.nextLine()}|Anton228|${Instant.now()}"){
-    dataOutputStream.writeUTF(text)
-    println(dataInputStream.readUTF())
-}
-
-
-fun run() {
-    while (true) {
-        if (buffer.ready()) {
-
-            if (socket != null){
-
-                val timestamp = Instant.now()
-                sendMessage(scanner, dataIn, dataOut, "Start|aaa|1234|${timestamp}")
-                sendMessage(scanner, dataIn, dataOut)
-                try {
-                    var timeStart = System.currentTimeMillis()
-                    while (!Thread.currentThread().isInterrupted) {
-                        if(buffer.ready()){
-                            sendMessage(scanner, dataIn, dataOut)
-                            timeStart = System.currentTimeMillis()
-                        }else if(System.currentTimeMillis()- timeStart  > 10000) {
-                            break
+    fun run(){
+        while (true) {
+            if (buffer.ready()){
+                if(this.initConnection()){
+                    this.sendMessage(TypeMessage.START)
+                    try {
+                        var timeStart = System.currentTimeMillis()
+                        while (true){
+                            if(buffer.ready()){
+                                sendMessage(TypeMessage.SEND, scanner.nextLine(), "Anton228")
+                                timeStart = System.currentTimeMillis()
+                            }else if(System.currentTimeMillis()- timeStart  > 10000) {
+                                break
+                            }
                         }
+                    }finally {
+                        this.closeConnection()
                     }
-                }finally {
-                    val timestamp = Instant.now()
-                    sendMessage(scanner, dataIn, dataOut, "Bye|${timestamp}")
-                    closeConnection(dataIn, dataOut, socket)
+                }else{
+                    sleep(10000)
                 }
-            }else{
-                sleep(10000)
             }
         }
     }
 }
 
 fun main() {
-    run()
+    Client("AndreiKulinkovich","229", "127.0.0.1",5001).run()
 }
