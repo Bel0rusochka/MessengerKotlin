@@ -4,7 +4,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
 
-class ServerClientModel(override val dbName: String): DbModel<DbClient>{
+class ServerClientModel(override val dbName: String): DbModel<DataClient>{
     override var dbConnection: Connection? = null
     init {
         connect()
@@ -42,7 +42,7 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
         }
     }
 
-    override fun insertItem(item: DbClient) {
+    override fun insertItem(item: DataClient) {
         val sql = "INSERT INTO clients(name,password) VALUES(?,?)"
         try {
             val stmt = dbConnection?.prepareStatement(sql)
@@ -55,14 +55,14 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
 
     }
 
-    fun getItem(primerKey: String): DbClient {
+    fun getItem(primerKey: String): DataClient {
         val sql = "SELECT name, password FROM clients WHERE name = ?"
-        var item:DbClient? = null
+        var item:DataClient? = null
         try {
             val stmt = dbConnection?.prepareStatement(sql)
             stmt?.setString(1, primerKey)
-            val tableDates = stmt?.executeQuery()
-            item = DbClient(tableDates!!.getString("name"), tableDates.getString("password"))
+            val tableData = stmt?.executeQuery()
+            item = DataClient(tableData!!.getString("name"), tableData.getString("password"))
         }catch(e: SQLException) {
             println(e.message)
         }
@@ -70,15 +70,15 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
         return item!!
     }
 
-    fun getAllItems(): List<DbClient> {
+    fun getAllItems(): List<DataClient> {
         val sql = "SELECT name, password FROM clients"
-        val items = mutableListOf<DbClient>()
+        val items = mutableListOf<DataClient>()
         try {
             val stmt = dbConnection?.createStatement()
-            val tableDates = stmt?.executeQuery(sql)
+            val tableData = stmt?.executeQuery(sql)
 
-            while (tableDates?.next() == true) {
-                val item = DbClient(tableDates.getString("name"), tableDates.getString("password"))
+            while (tableData?.next() == true) {
+                val item = DataClient(tableData.getString("name"), tableData.getString("password"))
                 items.add(item)
             }
         } catch (e: SQLException) {
@@ -93,8 +93,8 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
         try {
             val stmt = dbConnection?.prepareStatement(sql)
             stmt?.setString(1, primerKey)
-            val tableDates = stmt?.executeQuery()
-            DbClient(tableDates!!.getString("name"), tableDates.getString("password"))
+            val tableData = stmt?.executeQuery()
+            DataClient(tableData!!.getString("name"), tableData.getString("password"))
             return true
         }catch(e: SQLException) {
             return false
@@ -104,4 +104,4 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
 
 }
 
-data class DbClient(val name: String, val password: String)
+data class DataClient(val name: String, val password: String)

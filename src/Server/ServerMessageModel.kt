@@ -4,7 +4,7 @@ import java.sql.DriverManager
 import java.sql.SQLException
 import java.sql.Timestamp
 
-class ServerMessageModel(override val dbName: String):DbModel<DbMessage> {
+class ServerMessageModel(override val dbName: String):DbModel<DataMessageServerModel> {
     override var dbConnection: Connection? = null
     init {
         connect()
@@ -44,7 +44,7 @@ class ServerMessageModel(override val dbName: String):DbModel<DbMessage> {
         }
     }
 
-    override fun insertItem(item: DbMessage) {
+    override fun insertItem(item: DataMessageServerModel) {
         val sql = "INSERT INTO messages(timestamp,text,dstClientName,srcClientName) VALUES(?,?,?,?)"
         try {
             val stmt = dbConnection?.prepareStatement(sql)
@@ -58,16 +58,16 @@ class ServerMessageModel(override val dbName: String):DbModel<DbMessage> {
         }
     }
 
-    fun getAllClientItems(dstClientName: String): List<DbMessage> {
-        val sql = "SELECT timestamp,text,dstClientName,srcClientName FROM  messages WHERE dstClientName = ?"
-        val items = mutableListOf<DbMessage>()
+    fun getAllClientItems(dstClientName: String): List<DataMessageServerModel> {
+        val sql = "SELECT timestamp,text,dstClientName,srcClientName FROM  messages WHERE dstClientName = ? ORDER BY timestamp"
+        val items = mutableListOf<DataMessageServerModel>()
         try{
             val stmt = dbConnection?.prepareStatement(sql)
             stmt?.setString(1, dstClientName)
             val tableDates = stmt?.executeQuery()
 
             while (tableDates?.next() == true) {
-                val item = DbMessage(tableDates.getTimestamp("timestamp"),tableDates.getString("text"), tableDates.getString("dstClientName"), tableDates.getString("srcClientName"))
+                val item = DataMessageServerModel(tableDates.getTimestamp("timestamp"),tableDates.getString("text"), tableDates.getString("dstClientName"), tableDates.getString("srcClientName"))
                 items.add(item)
             }
         } catch (e: SQLException) {
@@ -102,4 +102,4 @@ class ServerMessageModel(override val dbName: String):DbModel<DbMessage> {
 
 }
 
-data class DbMessage(val timestamp: Timestamp, val text: String, val dstClientName: String, val srcClientName: String)
+data class DataMessageServerModel(val timestamp: Timestamp, val text: String, val dstClientName: String, val srcClientName: String)
