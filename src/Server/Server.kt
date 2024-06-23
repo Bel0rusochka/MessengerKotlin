@@ -1,14 +1,15 @@
 package Server
 
-import java.awt.TrayIcon
+import java.sql.Timestamp
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
-import java.time.Instant
-import Server.ServerClientModel
 import TypeMessage
+import java.util.Date
+import java.text.SimpleDateFormat
+
 
 class ExitException(message: String) : Exception(message)
 
@@ -22,7 +23,7 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
     fun setPassword(password: String){
         this.password = password
     }
-    fun getUsername(): String{
+    fun getClientName(): String{
         return this.userName
     }
 
@@ -32,7 +33,7 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
 
 
     fun sendMessage(typeMessage: TypeMessage, msg: String?=null,srcClient: String?=null){
-        val timestamp = Instant.now()
+        val timestamp = Timestamp(Date().time)
         when (typeMessage) {
             TypeMessage.BYE -> {
                 this.dataOut.writeUTF("Bye|$timestamp")
@@ -50,7 +51,8 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
 class Server(private val port: Int){
     private var clientsArray: ArrayList<Client> = arrayListOf()
     private val serverSocket = ServerSocket(this.port)
-    private val dbClients = ServerClientModel("Server.db")
+    private val dbClients = ServerClientModel("ServerClients.db")
+    private val dbMessages = ServerMessageModel("ServerMessage.db")
 
     private fun connect(): Client{
         val clientSocket = this.serverSocket.accept()
@@ -81,36 +83,64 @@ class Server(private val port: Int){
         }
 //        serverSocket.close()
         this.dbClients.close()
+        this.dbMessages.close()
     }
-    private fun findClient(name: String): Client?{
+    private fun findActiveClient(name: String): Client?{
         clientsArray.forEach {
-            if(it.getUsername() == name) return it
+            if(it.getClientName() == name) return it
         }
         return null
+    }
+    private fun transformStringToTimestamp(date: String): Timestamp{
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        val parsedDate = dateFormat.parse(date)
+        return Timestamp(parsedDate.time)
     }
     private fun processMessage(client: Client){
         val msgList = client.dataIn.readUTF().split("|")
         when(msgList[0]){
             "Send"->{
-                if(!this.dbClients.itemExists(msgList[2])){
+                println("Send 1")
+                val text = msgList[1]
+                val dstClientName = msgList[2]
+                val timestamp = transformStringToTimestamp(msgList[3])
+                val srcClientName = client.getClientName()
+
+                if(!this.dbClients.itemExists(dstClientName)){
                     client.sendMessage(TypeMessage.RESPONSE,"Can't find destination user","Server")
                 }else{
-                    val dstClient = findClient(msgList[2])
-                    dstClient?.sendMessage(TypeMessage.RESPONSE, msgList[1], client.getUsername())
-                }
+                    val dstClient = findActiveClient(dstClientName)
+                    if(dstClient==null){
+                        this.dbMessages.insertItem(DbMessage(timestamp,text,dstClientName, srcClientName))
+                    }else{
+                        dstClient.sendMessage(TypeMessage.RESPONSE, text, client.getClientName())
+                    }
 
+                }
+                println("Send 2")
             }
             "Bye"->{
-                println("Bye, bye ${client.getUsername()}")
-                throw ExitException("Client ${client.getUsername()} has disconnected.")
+                println("Bye, bye ${client.getClientName()}")
+                throw ExitException("Client ${client.getClientName()} has disconnected.")
             }
             "Start"->{
-                client.setName(msgList[1])
-                client.setPassword(msgList[2])
-                if (!this.dbClients.itemExists(msgList[1])){
-                    this.dbClients.insertItem(DbClient(msgList[1],msgList[2]))
+                println("Start 1")
+                val name = msgList[1]
+                val password = msgList[2]
+                client.setName(name)
+                client.setPassword(password)
+                if (!this.dbClients.itemExists(name)){
+                    this.dbClients.insertItem(DbClient(name,password))
+                }else{
+                    if (this.dbMessages.itemsExists(name)){
+                        val messageList = this.dbMessages.getAllClientItems(name)
+                        messageList.forEach{message -> client.sendMessage(TypeMessage.RESPONSE, message.text,message.srcClientName)}
+                        this.dbMessages.deleteItems(name)
+
+                    }
                 }
-                println("User ${client.getUsername()} successfully registered")
+                println("Start 2")
+                println("User ${client.getClientName()} successfully registered")
             }
         }
 
@@ -142,5 +172,9 @@ class Server(private val port: Int){
 }
 
 fun main() {
-    Server(5001).run()
+//    val db = ServerMessageModel("ServerMessage.db")
+//    db.insertItem(DbMessage(Timestamp(Date().time),"adasdasd","Anton228", "Anton228"))
+//    db.insertItem(DbMessage(Timestamp(Date().time),"ZALUO","Anton228", "Anton228"))
+//    db.insertItem(DbMessage(Timestamp(Date().time),"123123","Anton228", "Anton228"))
+  Server(5001).run()
 }

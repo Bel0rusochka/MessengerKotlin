@@ -3,9 +3,9 @@ import java.io.*
 import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.time.Instant
 import java.util.*
 import TypeMessage
+import java.sql.Timestamp
 
 val scanner = Scanner(System.`in`)
 val buffer = BufferedReader(InputStreamReader(System.`in`))
@@ -41,7 +41,7 @@ class Client(private val name: String, private val password: String, private val
     }
 
     private fun sendMessage(typeMessage: TypeMessage, msg: String? = null, to: String? = null) {
-        val timestamp = Instant.now()
+        val timestamp = Timestamp(Date().time)
         try {
             when (typeMessage) {
                 TypeMessage.BYE -> {

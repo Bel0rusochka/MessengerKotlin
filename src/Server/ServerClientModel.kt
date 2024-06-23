@@ -55,7 +55,7 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
 
     }
 
-    override fun getItem(primerKey: String): DbClient {
+    fun getItem(primerKey: String): DbClient {
         val sql = "SELECT name, password FROM clients WHERE name = ?"
         var item:DbClient? = null
         try {
@@ -70,7 +70,7 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
         return item!!
     }
 
-    override fun getAllItems(): List<DbClient> {
+    fun getAllItems(): List<DbClient> {
         val sql = "SELECT name, password FROM clients"
         val items = mutableListOf<DbClient>()
         try {
@@ -78,8 +78,8 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
             val tableDates = stmt?.executeQuery(sql)
 
             while (tableDates?.next() == true) {
-                val client = DbClient(tableDates.getString("name"), tableDates.getString("password"))
-                items.add(client)
+                val item = DbClient(tableDates.getString("name"), tableDates.getString("password"))
+                items.add(item)
             }
         } catch (e: SQLException) {
             println(e.message)
@@ -88,7 +88,7 @@ class ServerClientModel(override val dbName: String): DbModel<DbClient>{
         return items
     }
 
-    override fun itemExists(primerKey: String): Boolean {
+    fun itemExists(primerKey: String): Boolean {
         val sql = "SELECT name, password FROM clients WHERE name = ?"
         try {
             val stmt = dbConnection?.prepareStatement(sql)
