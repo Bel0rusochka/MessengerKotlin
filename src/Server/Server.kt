@@ -7,6 +7,7 @@ import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import java.time.Instant
+import Server.ServerClientModel
 import TypeMessage
 
 class ExitException(message: String) : Exception(message)
@@ -49,6 +50,7 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
 class Server(private val port: Int){
     private var clientsArray: ArrayList<Client> = arrayListOf()
     private val serverSocket = ServerSocket(this.port)
+    private val dbClients = ServerClientModel("Server.db")
 
     private fun connect(): Client{
         val clientSocket = this.serverSocket.accept()
@@ -64,6 +66,7 @@ class Server(private val port: Int){
                client.dataIn.close()
                client.dataOut.close()
                client.socket.close()
+
                this.clientsArray.remove(client)
            }
 
@@ -77,8 +80,9 @@ class Server(private val port: Int){
             it.sendMessage(TypeMessage.BYE)
         }
 //        serverSocket.close()
+        this.dbClients.close()
     }
-    fun findClient(name: String): Client?{
+    private fun findClient(name: String): Client?{
         clientsArray.forEach {
             if(it.getUsername() == name) return it
         }
@@ -88,9 +92,13 @@ class Server(private val port: Int){
         val msgList = client.dataIn.readUTF().split("|")
         when(msgList[0]){
             "Send"->{
-                println("Send message to ${msgList[2]}, body of message is ${msgList[1]}")
-                val dstClient = findClient(msgList[2])
-                dstClient?.sendMessage(TypeMessage.RESPONSE, msgList[1], client.getUsername())
+                if(!this.dbClients.itemExists(msgList[2])){
+                    client.sendMessage(TypeMessage.RESPONSE,"Can't find destination user","Server")
+                }else{
+                    val dstClient = findClient(msgList[2])
+                    dstClient?.sendMessage(TypeMessage.RESPONSE, msgList[1], client.getUsername())
+                }
+
             }
             "Bye"->{
                 println("Bye, bye ${client.getUsername()}")
@@ -99,6 +107,9 @@ class Server(private val port: Int){
             "Start"->{
                 client.setName(msgList[1])
                 client.setPassword(msgList[2])
+                if (!this.dbClients.itemExists(msgList[1])){
+                    this.dbClients.insertItem(DbClient(msgList[1],msgList[2]))
+                }
                 println("User ${client.getUsername()} successfully registered")
             }
         }
