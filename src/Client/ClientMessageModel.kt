@@ -58,16 +58,16 @@ class ClientMessageModel(private val dbName: String){
         }
     }
 
-    fun getAllClientMessages(clientConverName: String): List<DataMessageClientModel> {
+    fun getAllClientMessages(clientConverName: String): List<String> {
         val sql = "SELECT timestamp,text,clientConverName,type FROM  messages WHERE clientConverName = ? ORDER BY timestamp"
-        val messages = mutableListOf<DataMessageClientModel>()
+        val messages = mutableListOf<String>()
         try{
             val stmt = dbConnection?.prepareStatement(sql)
             stmt?.setString(1, clientConverName)
             val tableData = stmt?.executeQuery()
 
             while (tableData?.next() == true) {
-                val message = DataMessageClientModel(tableData.getTimestamp("timestamp"),tableData.getString("text"), tableData.getString("clientConverName"), tableData.getString("type"))
+                val message = "${tableData.getTimestamp("timestamp")}|${tableData.getString("text")}|${tableData.getString("clientConverName")}|${tableData.getString("type")}"
                 messages.add(message)
             }
         } catch (e: SQLException) {

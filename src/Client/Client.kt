@@ -9,19 +9,22 @@ import TypeMessage
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
 
-val scanner = Scanner(System.`in`)
-val buffer = BufferedReader(InputStreamReader(System.`in`))
 
-class Client(private val name: String, private val password: String, private val host: String, private val port: Int) {
+class Client(private val name: String, private val password: String) {
     private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
     private val dbMessages = ClientMessageModel("ClientMessage.db")
-
+    init{
+        initConnection()
+    }
+    fun getDb():ClientMessageModel{
+        return this.dbMessages
+    }
     private fun initConnection(): Boolean {
         return try {
             this.socket = Socket()
-            this.socket!!.connect(InetSocketAddress(this.host, 5001), 1000)
+            this.socket!!.connect(InetSocketAddress("127.0.0.1",5001), 1000)
             this.dataOut = DataOutputStream(socket!!.getOutputStream())
             this.dataIn = DataInputStream(socket!!.getInputStream())
             sendMessage(TypeMessage.START)
@@ -32,7 +35,7 @@ class Client(private val name: String, private val password: String, private val
         }
     }
 
-    private fun closeConnection() {
+    fun closeConnection() {
         try {
             this.sendMessage(TypeMessage.BYE)
             this.dataIn?.close()
@@ -50,7 +53,7 @@ class Client(private val name: String, private val password: String, private val
         return Timestamp(parsedDate.time)
     }
 
-    private fun sendMessage(typeMessage: TypeMessage, msg: String? = null, to: String? = null) {
+    fun sendMessage(typeMessage: TypeMessage, msg: String? = null, to: String? = null) {
         val timestamp = Timestamp(Date().time)
         try {
             when (typeMessage) {
@@ -100,50 +103,5 @@ class Client(private val name: String, private val password: String, private val
 
     }
 
-    fun isMessageToServer(): Boolean {
-        return buffer.ready()
-    }
-
-
-    private fun communicationWithServer(){
-
-        try {
-            var timeStart = System.currentTimeMillis()
-            while (true) {
-                if (this.isMessageToServer()) {
-                    this.sendMessage(TypeMessage.SEND, scanner.nextLine(), "AndreiKulinkovich")
-                    timeStart = System.currentTimeMillis()
-                }
-
-                if(this.isMessageFromServer()) {
-                    processMessageFromServer()
-                    timeStart = System.currentTimeMillis()
-                }
-
-                if (System.currentTimeMillis() - timeStart > 10000 )break
-
-            }
-        } finally {
-            closeConnection()
-        }
-    }
-
-    fun run() {
-        while (true) {
-            if (buffer.ready()) {
-                if (initConnection()) {
-                    this.communicationWithServer()
-                } else {
-                    sleep(10000)
-                }
-            }
-        }
-    }
-
-
 }
 
-fun main() {
-    Client("Anton228","229", "127.0.0.1",5001).run()
-
-}
