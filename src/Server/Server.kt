@@ -80,7 +80,6 @@ class Server(private val port: Int){
         clientsArray.forEach {
             it.sendMessage(TypeMessage.BYE)
         }
-//        serverSocket.close()
         this.dbClients.close()
         this.dbMessages.close()
     }
@@ -106,12 +105,12 @@ class Server(private val port: Int){
                 val timestamp = transformStringToTimestamp(msgList[3])
                 val srcClientName = client.getClientName()
 
-                if(!this.dbClients.itemExists(dstClientName)){
+                if(!this.dbClients.isExistClient(dstClientName)){
                     client.sendMessage(TypeMessage.RESPONSE,"Can't find destination user","Server",timestamp)
                 }else{
                     val dstClient = findActiveClient(dstClientName)
                     if(dstClient==null){
-                        this.dbMessages.insertItem(DataMessageServerModel(timestamp,text,dstClientName, srcClientName))
+                        this.dbMessages.insertMessage(DataMessageServerModel(timestamp,text,dstClientName, srcClientName))
                     }else{
                         dstClient.sendMessage(TypeMessage.RESPONSE, text, client.getClientName(),timestamp)
                     }
@@ -127,14 +126,13 @@ class Server(private val port: Int){
                 val password = msgList[2]
                 client.setName(name)
                 client.setPassword(password)
-                if (!this.dbClients.itemExists(name)){
-                    this.dbClients.insertItem(DataClient(name,password))
+                if (!this.dbClients.isExistClient(name)){
+                    this.dbClients.insertClient(DataClientServerModel(name,password))
                 }else{
-                    if (this.dbMessages.itemsExists(name)){
-                        val messageList = this.dbMessages.getAllClientItems(name)
+                    if (this.dbMessages.isExistMessages(name)){
+                        val messageList = this.dbMessages.getAllClientMessages(name)
                         messageList.forEach{message -> client.sendMessage(TypeMessage.RESPONSE, message.text,message.srcClientName,message.timestamp)}
                         this.dbMessages.deleteItems(name)
-
                     }
                 }
                 println("User ${client.getClientName()} successfully registered")
@@ -171,4 +169,5 @@ class Server(private val port: Int){
 
 fun main() {
   Server(5001).run()
+
 }
