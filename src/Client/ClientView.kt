@@ -9,30 +9,21 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
-import javafx.collections.FXCollections
 import javafx.scene.layout.Priority
 import javafx.application.Platform
 
 
 class MainApp: Application() {
-    val client = Client("Andrei","229")
-    private val db = client.getDb()
-    private val messages = FXCollections.observableArrayList<String>()
+    private val client = Client("Anton","229")
+    private val messageList = ListView<String>()
     private val userList = ListView<String>()
 
     override fun start(primaryStage: Stage) {
         primaryStage.title = "Messenger App"
-
-
-        val observableList = FXCollections.observableArrayList<String>(db.getAllClientConverNames())
-        userList.items.addAll(observableList)
-
-        val messageList = ListView<String>()
-        messageList.items = messages
+        userList.items.addAll(client.getAllConverClientNames())
 
         val messageInput = TextField()
         val sendButton = Button("Send")
-
         val messageInputBox = HBox(messageInput, sendButton)
         messageInputBox.alignment = Pos.CENTER
         messageInputBox.isVisible = false
@@ -41,7 +32,6 @@ class MainApp: Application() {
 
         val userNameInput = TextField()
         val addUserButton= Button("Add")
-
         val userNameInputBox = HBox(userNameInput, addUserButton)
         userNameInputBox.alignment = Pos.CENTER
         HBox.setHgrow(userNameInput, Priority.ALWAYS)
@@ -58,16 +48,17 @@ class MainApp: Application() {
 
 
         addUserButton.setOnAction {
-            val messageText = userNameInput.text
-
-            userList.items.addAll(messageText)
+            val userName = userNameInput.text
+            if (!userList.items.contains(userName)) {
+                userList.items.add(userName)
+            }
         }
 
         sendButton.setOnAction {
             val selectedUser = userList.selectionModel.selectedItem
             val messageText = messageInput.text
             if (selectedUser != null) {
-                this.client.sendMessage(TypeMessage.SEND, messageText, "Andrei")
+                this.client.sendMessage(TypeMessage.SEND, messageText, selectedUser)
                 this.loadMessagesForUser()
                 messageInput.clear()
             }
@@ -76,23 +67,22 @@ class MainApp: Application() {
         val messagesPane = VBox()
         messagesPane.children.addAll(userNameLabel, messageList, messageInputBox)
         messagesPane.padding = Insets(10.0)
+        VBox.setVgrow(messageList, Priority.ALWAYS)
 
         val usersPane = VBox()
         usersPane.children.addAll(Label("Users"),userNameInputBox, userList)
         usersPane.padding = Insets(10.0)
+        VBox.setVgrow(userList, Priority.ALWAYS)
 
-
-
-        // Размещаем контейнеры в BorderPane
         val borderPane = BorderPane()
         borderPane.left = usersPane
         borderPane.center = messagesPane
 
-        // Создаем сцену и устанавливаем её в окно
+
         val scene = Scene(borderPane, 800.0, 400.0)
         primaryStage.scene = scene
 
-        // Отображаем окно
+
         primaryStage.show()
 
         Thread{
@@ -103,19 +93,27 @@ class MainApp: Application() {
     private fun loadMessagesForUser() {
         Thread {
             val selectedUser = userList.selectionModel.selectedItem
-            val userMessages = db.getAllClientMessages(selectedUser)
+            val userMessages = mutableListOf<String>()
+
+            userMessages.addAll( client.getAllMessageWith(selectedUser))
+
+
             Platform.runLater {
-                messages.clear()
-                messages.addAll(userMessages)
-                val observableList = FXCollections.observableArrayList<String>(db.getAllClientConverNames())
-                userList.items.addAll(observableList)
+                messageList.items.clear()
+                messageList.items.addAll(userMessages)
+
+                client.getAllConverClientNames().forEach { name ->
+                    if (!userList.items.contains(name)) {
+                        userList.items.add(name)
+                    }
+                }
             }
         }.start()
     }
 
-    fun communicationWithServer(){
+    private fun communicationWithServer(){
         try {
-            while (true) {
+            while (true){
                 if(this.client.isMessageFromServer()) {
                     this.client.processMessageFromServer()
                     Platform.runLater {
