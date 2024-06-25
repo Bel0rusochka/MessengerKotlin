@@ -14,7 +14,7 @@ import javafx.scene.control.Alert
 import javafx.scene.control.Alert.AlertType
 
 class MainApp: Application() {
-    private val client = Client("Anton","229")
+    private val client = Client("Andrei","229")
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
     private val thread = Thread{ this.communicationWithServer() }
@@ -48,12 +48,13 @@ class MainApp: Application() {
         }
 
         addUserButton.setOnAction {
-            val userName = userNameInput.text
-            if (!userList.items.contains(userName)) {
+            val userName = userNameInput.text.trim()
+            if(userName!="" && !userList.items.contains(userName)) {
                 userList.items.add(userName)
             }
             userNameInput.clear()
         }
+
         deleteUserButton.setOnAction {
             val selectedUser = userList.selectionModel.selectedItem
             if (selectedUser != null) {
@@ -62,14 +63,6 @@ class MainApp: Application() {
                 userNameLabel.text = "Messages"
                 userList.items.remove(selectedUser)
             }
-        }
-
-        addUserButton.setOnAction {
-            val userName = userNameInput.text
-            if (!userList.items.contains(userName)) {
-                userList.items.add(userName)
-            }
-            userNameInput.clear()
         }
 
         sendButton.setOnAction {
@@ -114,14 +107,14 @@ class MainApp: Application() {
     }
 
     private fun loadMessagesForUser() {
-        if(userList.selectionModel.selectedItem!=null) {
+        if(userList.selectionModel.selectedItem!=null){
             val selectedUser = userList.selectionModel.selectedItem
             messageList.items.clear()
             messageList.items.addAll(client.getAllMessageWith(selectedUser))
-            client.getAllConverClientNames().forEach { name ->
-                if (!userList.items.contains(name)) {
-                    userList.items.add(name)
-                }
+        }
+        client.getAllConverClientNames().forEach { name ->
+            if (!userList.items.contains(name)) {
+                userList.items.add(name)
             }
         }
     }

@@ -1,7 +1,5 @@
 package Client
-import Server.*
 import java.io.*
-import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.*
@@ -14,7 +12,7 @@ class Client(private val name: String, private val password: String) {
     private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
-    private val dbMessages = ClientMessageModel("ClientMessage.db")
+    private val dbMessages = ClientMessageModel("${name}Message.db")
     init{
         initConnection()
     }
@@ -109,7 +107,7 @@ class Client(private val name: String, private val password: String) {
     }
 
     fun getAllMessageWith(clientName: String): List<String>{
-        return this.dbMessages.getAllClientMessages(clientName)
+        return this.dbMessages.getAllClientMessages(clientName,this.getName())
     }
 
     fun isExistMessageWith(clientName: String): Boolean{

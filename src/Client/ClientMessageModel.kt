@@ -1,8 +1,9 @@
-package Server
+package Client
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
 import java.sql.Timestamp
+import java.time.format.DateTimeFormatter
 
 class ClientMessageModel(private val dbName: String){
     private var dbConnection: Connection? = null
@@ -58,7 +59,7 @@ class ClientMessageModel(private val dbName: String){
         }
     }
 
-    fun getAllClientMessages(clientConverName: String): List<String> {
+    fun getAllClientMessages(clientConverName: String, clintOwnName: String): List<String> {
         val sql = "SELECT timestamp,text,clientConverName,type FROM  messages WHERE clientConverName = ? ORDER BY timestamp"
         val messages = mutableListOf<String>()
         try{
@@ -67,7 +68,19 @@ class ClientMessageModel(private val dbName: String){
             val tableData = stmt?.executeQuery()
 
             while (tableData?.next() == true) {
-                val message = "${tableData.getTimestamp("timestamp")}|${tableData.getString("text")}|${tableData.getString("clientConverName")}|${tableData.getString("type")}"
+                val timestampFromDB = tableData.getTimestamp("timestamp")
+                val localDateTime = timestampFromDB.toLocalDateTime()
+                val formattedDateTime = localDateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+
+                val textFromDB = tableData.getString("text")
+                val clientConverNameFromDB = tableData.getString("clientConverName")
+                val typeFromDB = tableData.getString("type")
+
+                val message = if(typeFromDB == "Response"){
+                    "[$formattedDateTime] $clientConverNameFromDB: $textFromDB"
+                }else{
+                    "[$formattedDateTime] $clintOwnName: $textFromDB"
+                }
                 messages.add(message)
             }
         } catch (e: SQLException) {
