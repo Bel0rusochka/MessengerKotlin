@@ -78,7 +78,7 @@ class ClientMessageModel(private val dbName: String){
     }
 
     fun clientConverNameExists(clientConverName: String): Boolean {
-        val sql = "SELECT clientConverName FROM  messages WHERE clientConverName = ?"
+        val sql = "SELECT clientConverName FROM messages WHERE clientConverName = ?"
         try{
             val stmt = dbConnection?.prepareStatement(sql)
             stmt?.setString(1, clientConverName)
@@ -90,7 +90,7 @@ class ClientMessageModel(private val dbName: String){
     }
 
     fun getAllClientConverNames():List<String>{
-        val sql = "SELECT DISTINCT clientConverName FROM  messages ORDER BY timestamp"
+        val sql = "SELECT DISTINCT clientConverName FROM messages ORDER BY timestamp"
         val clientNames = mutableListOf<String>()
         try{
 
@@ -106,6 +106,16 @@ class ClientMessageModel(private val dbName: String){
         return clientNames
     }
 
+    fun deleteAllMessagesWithClient(clientConverName: String){
+        val sql = "DELETE FROM messages WHERE clientConverName = ?"
+        try{
+            val stmt = dbConnection?.prepareStatement(sql)
+            stmt?.setString(1, clientConverName)
+            stmt?.executeUpdate()
+        } catch (e: SQLException) {
+            println(e.message)
+        }
+    }
 }
 
 data class DataMessageClientModel(val timestamp: Timestamp, val text: String, val clientConverName: String, val type: String)
