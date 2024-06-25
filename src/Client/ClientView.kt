@@ -1,5 +1,4 @@
 import Client.Client
-import Server.ClientMessageModel
 import javafx.application.Application
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -11,15 +10,18 @@ import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import javafx.scene.layout.Priority
 import javafx.application.Platform
-
+import javafx.scene.control.Alert
+import javafx.scene.control.Alert.AlertType
 
 class MainApp: Application() {
     private val client = Client("Anton","229")
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
+    private val thread = Thread{ this.communicationWithServer() }
 
     override fun start(primaryStage: Stage) {
         primaryStage.title = "Messenger App"
+        val userNameLabel = Label("Messages")
         userList.items.addAll(client.getAllConverClientNames())
 
         val messageInput = TextField()
@@ -32,26 +34,42 @@ class MainApp: Application() {
 
         val userNameInput = TextField()
         val addUserButton= Button("Add")
-        val userNameInputBox = HBox(userNameInput, addUserButton)
+        val deleteUserButton = Button("Delete")
+        deleteUserButton.style ="-fx-background-color: #FF4040; "
+        val userNameInputBox = HBox(userNameInput, addUserButton,deleteUserButton)
         userNameInputBox.alignment = Pos.CENTER
         HBox.setHgrow(userNameInput, Priority.ALWAYS)
 
 
-        val userNameLabel = Label("Messages")
-
-
         userList.selectionModel.selectedItemProperty().addListener { _, _, newValue ->
             messageInputBox.isVisible = newValue != null
-            userNameLabel.text=newValue
+            if (userList.selectionModel.selectedItem!= null) userNameLabel.text=newValue
             this.loadMessagesForUser()
         }
-
 
         addUserButton.setOnAction {
             val userName = userNameInput.text
             if (!userList.items.contains(userName)) {
                 userList.items.add(userName)
             }
+            userNameInput.clear()
+        }
+        deleteUserButton.setOnAction {
+            val selectedUser = userList.selectionModel.selectedItem
+            if (selectedUser != null) {
+                this.client.deleteAllMessagesWithConvClient(selectedUser)
+                this.messageList.items.clear()
+                userNameLabel.text = "Messages"
+                userList.items.remove(selectedUser)
+            }
+        }
+
+        addUserButton.setOnAction {
+            val userName = userNameInput.text
+            if (!userList.items.contains(userName)) {
+                userList.items.add(userName)
+            }
+            userNameInput.clear()
         }
 
         sendButton.setOnAction {
@@ -74,58 +92,64 @@ class MainApp: Application() {
         usersPane.padding = Insets(10.0)
         VBox.setVgrow(userList, Priority.ALWAYS)
 
+        val lb = Label("My name is: ${client.getName()}")
+        lb.padding = Insets(0.0, 10.0, 0.0, 10.0)
+
         val borderPane = BorderPane()
+        borderPane.top = lb
         borderPane.left = usersPane
         borderPane.center = messagesPane
-
 
         val scene = Scene(borderPane, 800.0, 400.0)
         primaryStage.scene = scene
 
-
         primaryStage.show()
 
-        Thread{
-            this.communicationWithServer()
-        }.start()
+        thread.start()
+        primaryStage.setOnCloseRequest {
+            thread.interrupt()
+        }
+
+
     }
 
     private fun loadMessagesForUser() {
-        Thread {
+        if(userList.selectionModel.selectedItem!=null) {
             val selectedUser = userList.selectionModel.selectedItem
-            val userMessages = mutableListOf<String>()
-
-            userMessages.addAll( client.getAllMessageWith(selectedUser))
-
-
-            Platform.runLater {
-                messageList.items.clear()
-                messageList.items.addAll(userMessages)
-
-                client.getAllConverClientNames().forEach { name ->
-                    if (!userList.items.contains(name)) {
-                        userList.items.add(name)
-                    }
+            messageList.items.clear()
+            messageList.items.addAll(client.getAllMessageWith(selectedUser))
+            client.getAllConverClientNames().forEach { name ->
+                if (!userList.items.contains(name)) {
+                    userList.items.add(name)
                 }
             }
-        }.start()
+        }
     }
 
     private fun communicationWithServer(){
         try {
-            while (true){
-                if(this.client.isMessageFromServer()) {
-                    this.client.processMessageFromServer()
-                    Platform.runLater {
-                        if(userList.selectionModel.selectedItem!=null)
-                        {
-                            loadMessagesForUser()
+            while (!Thread.currentThread().isInterrupted) {
+                if (this.client.isMessageFromServer()) {
+                    when (this.client.processMessageFromServer()) {
+                        "Bye" -> {
+                            Thread.currentThread().interrupt()
                         }
-
+                        "Unfindable" -> {
+                            Platform.runLater {
+                                val alert = Alert(AlertType.WARNING)
+                                alert.title = "WARNING!!!"
+                                alert.headerText = "Oops!"
+                                alert.contentText = "We couldn't find a user with that user name"
+                                alert.showAndWait()
+                            }
+                        }
+                        "Response" -> {
+                            Platform.runLater { loadMessagesForUser() }
+                        }
                     }
                 }
             }
-        } finally {
+        }finally {
             this.client.closeConnection()
         }
     }

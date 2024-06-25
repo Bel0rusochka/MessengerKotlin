@@ -14,9 +14,12 @@ class Client(private val name: String, private val password: String) {
     private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
-    private val dbMessages = ClientMessageModel("ClientMessage2.db")
+    private val dbMessages = ClientMessageModel("ClientMessage.db")
     init{
         initConnection()
+    }
+    fun getName():String{
+        return this.name
     }
 
     private fun initConnection(): Boolean {
@@ -82,21 +85,24 @@ class Client(private val name: String, private val password: String) {
         return this.dataIn!!.available() > 0
     }
 
-    fun processMessageFromServer(){
+    fun processMessageFromServer():String{
         val msgList = this.dataIn?.readUTF()!!.split("|")
         when(msgList[0]){
             "Bye"->{
-                throw ExitException("Disconnect from server.")
+                return "Bye"
             }
             "Response"->{
                 val text = msgList[1]
                 val srcClientName = msgList[2]
                 val timestamp = transformStringToTimestamp(msgList[3])
                 if(srcClientName=="Server"){
-                    println("Can't find user")
+                    return "Unfindable"
                 }else{
                     dbMessages.insertMessage(DataMessageClientModel(timestamp,text,srcClientName,"Response"))
+                    return "Response"
                 }
+            }else -> {
+                throw Error("Server Error")
             }
         }
 
@@ -108,6 +114,10 @@ class Client(private val name: String, private val password: String) {
 
     fun isExistMessageWith(clientName: String): Boolean{
         return this.dbMessages.clientConverNameExists(clientName)
+    }
+
+    fun deleteAllMessagesWithConvClient(clientName: String){
+        this.dbMessages.deleteAllMessagesWithClient(clientName)
     }
 
     fun getAllConverClientNames():List<String>{
