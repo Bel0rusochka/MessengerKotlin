@@ -14,13 +14,11 @@ class Client(private val name: String, private val password: String) {
     private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
-    private val dbMessages = ClientMessageModel("ClientMessage.db")
+    private val dbMessages = ClientMessageModel("ClientMessage2.db")
     init{
         initConnection()
     }
-    fun getDb():ClientMessageModel{
-        return this.dbMessages
-    }
+
     private fun initConnection(): Boolean {
         return try {
             this.socket = Socket()
@@ -79,6 +77,7 @@ class Client(private val name: String, private val password: String) {
         }
 
     }
+
     fun isMessageFromServer(): Boolean {
         return this.dataIn!!.available() > 0
     }
@@ -101,6 +100,18 @@ class Client(private val name: String, private val password: String) {
             }
         }
 
+    }
+
+    fun getAllMessageWith(clientName: String): List<String>{
+        return this.dbMessages.getAllClientMessages(clientName)
+    }
+
+    fun isExistMessageWith(clientName: String): Boolean{
+        return this.dbMessages.clientConverNameExists(clientName)
+    }
+
+    fun getAllConverClientNames():List<String>{
+        return this.dbMessages.getAllClientConverNames()
     }
 
 }
