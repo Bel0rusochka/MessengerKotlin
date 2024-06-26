@@ -13,11 +13,13 @@ import javafx.application.Platform
 import javafx.scene.control.Alert
 import javafx.scene.control.Alert.AlertType
 
+
 class MainApp: Application() {
-    private val client = Client("Andrei","229")
+    private val client = Client("Anton","229")
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
-    private val thread = Thread{ this.communicationWithServer() }
+    private var threadList = mutableListOf<Thread>()
+    private var runFlag = true
 
     override fun start(primaryStage: Stage) {
         primaryStage.title = "Messenger App"
@@ -97,13 +99,30 @@ class MainApp: Application() {
         primaryStage.scene = scene
 
         primaryStage.show()
+        val thread2 = Thread{ this.runClient() }
+        thread2.start()
 
-        thread.start()
         primaryStage.setOnCloseRequest {
-            thread.interrupt()
+
+            runFlag = false
+            threadList.forEach { it.interrupt() }
+
+            client.closeDB()
         }
+    }
 
+    private fun runClient(){
+        while (runFlag){
+            if(client.getConnectStatus()){
+                val th = Thread{this.communicationWithServer()}
+                threadList.add(th)
+                th.start()
+                th.join()
+            }else{
+                client.initConnection()
 
+            }
+        }
     }
 
     private fun loadMessagesForUser() {
@@ -120,32 +139,34 @@ class MainApp: Application() {
     }
 
     private fun communicationWithServer(){
-        try {
-            while (!Thread.currentThread().isInterrupted) {
-                if (this.client.isMessageFromServer()) {
-                    when (this.client.processMessageFromServer()) {
-                        "Bye" -> {
-                            Thread.currentThread().interrupt()
-                        }
-                        "Unfindable" -> {
-                            Platform.runLater {
-                                val alert = Alert(AlertType.WARNING)
-                                alert.title = "WARNING!!!"
-                                alert.headerText = "Oops!"
-                                alert.contentText = "We couldn't find a user with that user name"
-                                alert.showAndWait()
+            try {
+                while (!Thread.currentThread().isInterrupted) {
+                    if (this.client.isMessageFromServer()) {
+                        when (this.client.processMessageFromServer()) {
+                            "Bye" -> {
+                                Thread.currentThread().interrupt()
                             }
-                        }
-                        "Response" -> {
-                            Platform.runLater { loadMessagesForUser() }
+                            "Unfindable" -> {
+                                Platform.runLater {
+                                    val alert = Alert(AlertType.WARNING)
+                                    alert.title = "WARNING!!!"
+                                    alert.headerText = "Oops!"
+                                    alert.contentText = "We couldn't find a user with that user name"
+                                    alert.showAndWait()
+                                }
+                            }
+                            "Response" -> {
+                                Platform.runLater { loadMessagesForUser() }
+                            }
                         }
                     }
                 }
+            }finally {
+                this.client.closeConnection()
             }
-        }finally {
-            this.client.closeConnection()
-        }
     }
+
+
 }
 
 fun main() {
