@@ -19,21 +19,49 @@ class Client(private val name: String, private val password: String) {
         return this.name
     }
 
+    fun registerUser():Boolean{
+        try {
+            initConnection()
+            sendMessage(TypeMessage.REGISTER)
+            val statusMsg = processMessageFromServer()
+            closeConnection()
+            return statusMsg == "Success"
+        } catch (e: IOException) {
+            return false
+        }
+    }
+
+    fun loginUser():Boolean{
+        try {
+            initConnection()
+            sendMessage(TypeMessage.LOGIN)
+            val statusMsg = processMessageFromServer()
+            closeConnection()
+            return statusMsg == "Success"
+        } catch (e: IOException) {
+           return false
+        }
+    }
+
+    fun startConnection(){
+        return try {
+            initConnection()
+            sendMessage(TypeMessage.START)
+        } catch (e: IOException) {
+            println("Connection Failed: ${e.message}")
+        }
+    }
+
     fun getConnectStatus():Boolean{
         return this.connectFlag
     }
 
-    fun initConnection() {
-        return try {
-            this.socket = Socket()
-            this.socket!!.connect(InetSocketAddress("127.0.0.1",5001), 1000)
-            this.dataOut = DataOutputStream(socket!!.getOutputStream())
-            this.dataIn = DataInputStream(socket!!.getInputStream())
-            sendMessage(TypeMessage.START)
-            connectFlag = socket!!.isConnected
-        } catch (e: IOException) {
-            println("Connection Failed: ${e.message}")
-        }
+    private fun initConnection() {
+        this.socket = Socket()
+        this.socket!!.connect(InetSocketAddress("127.0.0.1",5001), 1000)
+        this.dataOut = DataOutputStream(socket!!.getOutputStream())
+        this.dataIn = DataInputStream(socket!!.getInputStream())
+        connectFlag = socket!!.isConnected
     }
 
     fun closeConnection() {
@@ -67,12 +95,20 @@ class Client(private val name: String, private val password: String) {
                 }
 
                 TypeMessage.START -> {
-                    this.dataOut?.writeUTF("Start|${this.name}|${password}|$timestamp")
+                    this.dataOut?.writeUTF("Start|${name}|${password}|$timestamp")
                 }
 
                 TypeMessage.SEND -> {
                     this.dataOut?.writeUTF("Send|$msg|$to|$timestamp")
                     dbMessages.insertMessage(DataMessageClientModel(timestamp, msg!!, to!!, "Send"))
+                }
+
+                TypeMessage.REGISTER -> {
+                    this.dataOut?.writeUTF("Register|${name}|${password}|$timestamp")
+                }
+
+                TypeMessage.LOGIN -> {
+                    this.dataOut?.writeUTF("Login|${name}|${password}|$timestamp")
                 }
 
                 else -> {
@@ -105,8 +141,9 @@ class Client(private val name: String, private val password: String) {
                     dbMessages.insertMessage(DataMessageClientModel(timestamp,text,srcClientName,"Response"))
                     return "Response"
                 }
-            }else -> {
-                throw Error("Server Error")
+            }
+            else -> {
+                return msgList[0]
             }
         }
 
