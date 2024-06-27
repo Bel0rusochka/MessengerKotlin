@@ -116,10 +116,6 @@ class Client(private val name: String, private val password: String) {
         return this.dbMessages.getAllClientMessages(clientName,this.getName())
     }
 
-    fun isExistMessageWith(clientName: String): Boolean{
-        return this.dbMessages.clientConverNameExists(clientName)
-    }
-
     fun deleteAllMessagesWithConvClient(clientName: String){
         this.dbMessages.deleteAllMessagesWithClient(clientName)
     }
