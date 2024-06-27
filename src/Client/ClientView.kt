@@ -12,14 +12,13 @@ import javafx.scene.layout.Priority
 import javafx.application.Platform
 import javafx.scene.control.Alert
 import javafx.scene.control.Alert.AlertType
+import java.lang.Thread.sleep
 
 
 class MainApp: Application() {
     private val client = Client("Anton","229")
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
-    private var threadList = mutableListOf<Thread>()
-    private var runFlag = true
 
     override fun start(primaryStage: Stage) {
         primaryStage.title = "Messenger App"
@@ -103,24 +102,18 @@ class MainApp: Application() {
         thread2.start()
 
         primaryStage.setOnCloseRequest {
-
-            runFlag = false
-            threadList.forEach { it.interrupt() }
-
+            thread2.interrupt()
             client.closeDB()
         }
     }
 
     private fun runClient(){
-        while (runFlag){
+        while (!Thread.currentThread().isInterrupted){
+            sleep(1000)
             if(client.getConnectStatus()){
-                val th = Thread{this.communicationWithServer()}
-                threadList.add(th)
-                th.start()
-                th.join()
+                communicationWithServer()
             }else{
                 client.initConnection()
-
             }
         }
     }
@@ -144,7 +137,7 @@ class MainApp: Application() {
                     if (this.client.isMessageFromServer()) {
                         when (this.client.processMessageFromServer()) {
                             "Bye" -> {
-                                Thread.currentThread().interrupt()
+                                break
                             }
                             "Unfindable" -> {
                                 Platform.runLater {
@@ -165,7 +158,6 @@ class MainApp: Application() {
                 this.client.closeConnection()
             }
     }
-
 
 }
 
