@@ -19,6 +19,7 @@ class MainApp: Application() {
     private val client = Client("Anton","229")
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
+    private val bottomStatus = Label("Connection status: ${if (client.getConnectStatus()) "Connected" else "Disconnected"}")
 
     override fun start(primaryStage: Stage) {
         primaryStage.title = "Messenger App"
@@ -78,12 +79,12 @@ class MainApp: Application() {
 
         val messagesPane = VBox()
         messagesPane.children.addAll(userNameLabel, messageList, messageInputBox)
-        messagesPane.padding = Insets(10.0)
+        messagesPane.padding = Insets(5.0, 10.0,5.0, 10.0)
         VBox.setVgrow(messageList, Priority.ALWAYS)
 
         val usersPane = VBox()
         usersPane.children.addAll(Label("Users"),userNameInputBox, userList)
-        usersPane.padding = Insets(10.0)
+        usersPane.padding = Insets(5.0, 10.0,5.0, 10.0)
         VBox.setVgrow(userList, Priority.ALWAYS)
 
         val lb = Label("My name is: ${client.getName()}")
@@ -94,6 +95,9 @@ class MainApp: Application() {
         borderPane.left = usersPane
         borderPane.center = messagesPane
 
+        bottomStatus.padding = Insets(0.0, 10.0, 5.0, 10.0)
+        borderPane.bottom = bottomStatus
+
         val scene = Scene(borderPane, 800.0, 400.0)
         primaryStage.scene = scene
 
@@ -102,19 +106,29 @@ class MainApp: Application() {
         thread2.start()
 
         primaryStage.setOnCloseRequest {
-            thread2.interrupt()
+
+                thread2.interrupt()
+
+
             client.closeDB()
         }
     }
 
     private fun runClient(){
-        while (!Thread.currentThread().isInterrupted){
-            sleep(1000)
-            if(client.getConnectStatus()){
-                communicationWithServer()
-            }else{
-                client.initConnection()
+        try {
+            while (!Thread.currentThread().isInterrupted){
+                    sleep(1000)
+                if(client.getConnectStatus()){
+                    communicationWithServer()
+                }else{
+                    Platform.runLater {
+                        client.initConnection()
+                        bottomStatus.text="Connection status: ${if (client.getConnectStatus()) "Connected" else "Disconnected"}"
+                    }
+                }
             }
+        }catch (e: InterruptedException) {
+            println("Thread was interrupted during sleep")
         }
     }
 
