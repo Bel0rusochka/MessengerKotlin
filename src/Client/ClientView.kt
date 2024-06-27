@@ -16,13 +16,60 @@ import java.lang.Thread.sleep
 
 
 class MainApp: Application() {
-    private val client = Client("Anton","229")
+    private val client = Client("A","229")
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
     private val bottomStatus = Label("Connection status: ${if (client.getConnectStatus()) "Connected" else "Disconnected"}")
+    private var isLogged = false
 
     override fun start(primaryStage: Stage) {
         primaryStage.title = "Messenger App"
+        showInitialScene(primaryStage)
+    }
+
+    private fun showInitialScene(primaryStage: Stage) {
+        if (!isLogged) {
+            authorizationScene(primaryStage)
+        } else {
+            messengerScene(primaryStage)
+        }
+    }
+
+    private fun authorizationScene(primaryStage: Stage) {
+        val registrationButton = Button("Registration")
+        val loginButton = Button("Login")
+
+        val buttonWidth = 100.0
+        val buttonHeight = 40.0
+        registrationButton.prefWidth = buttonWidth
+        loginButton.prefWidth = buttonWidth
+        registrationButton.prefHeight = buttonHeight
+        loginButton.prefHeight = buttonHeight
+
+        val userLoginRegistrationButtons = VBox(registrationButton, loginButton)
+        userLoginRegistrationButtons.alignment = Pos.CENTER
+        registrationButton.setOnAction {
+            isLogged = true
+            Platform.runLater {
+                registrationScene(primaryStage)
+            }
+        }
+        loginButton.setOnAction {
+            isLogged = true
+            Platform.runLater {
+                loginScene(primaryStage)
+            }
+        }
+
+        val borderPane = BorderPane()
+        borderPane.center = userLoginRegistrationButtons
+        val scene = Scene(borderPane, 800.0, 400.0)
+        primaryStage.scene = scene
+        primaryStage.show()
+    }
+
+    private fun messengerScene(primaryStage: Stage){
+
         val userNameLabel = Label("Messages")
         userList.items.addAll(client.getAllConverClientNames())
 
@@ -107,22 +154,29 @@ class MainApp: Application() {
 
         primaryStage.setOnCloseRequest {
 
-                thread2.interrupt()
-
-
+            thread2.interrupt()
             client.closeDB()
         }
     }
 
+    private fun loginScene(primaryStage: Stage){
+
+    }
+
+    private fun registrationScene(primaryStage: Stage){
+
+    }
+
     private fun runClient(){
         try {
+
             while (!Thread.currentThread().isInterrupted){
                     sleep(1000)
                 if(client.getConnectStatus()){
                     communicationWithServer()
                 }else{
                     Platform.runLater {
-                        client.initConnection()
+                        client.startConnection()
                         bottomStatus.text="Connection status: ${if (client.getConnectStatus()) "Connected" else "Disconnected"}"
                     }
                 }
@@ -177,4 +231,7 @@ class MainApp: Application() {
 
 fun main() {
     Application.launch(MainApp::class.java)
+//    val client = Client("asd","229")
+//    print(client.registerUser())
+//    print(client.loginUser())
 }
