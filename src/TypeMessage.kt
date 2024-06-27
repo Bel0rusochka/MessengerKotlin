@@ -3,5 +3,8 @@ enum class TypeMessage{
     BYE,
     SEND,
     RESPONSE,
-    REGISTER
+    REGISTER,
+    LOGIN,
+    SUCCESS,
+    FAILURE
 }

@@ -27,11 +27,6 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
         return this.userName
     }
 
-    fun getPassword(): String{
-        return this.password
-    }
-
-
     fun sendMessage(typeMessage: TypeMessage, msg: String?=null,srcClient: String?=null, timestamp: Timestamp=Timestamp(Date().time)){
         when (typeMessage) {
             TypeMessage.BYE -> {
@@ -39,6 +34,12 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
             }
             TypeMessage.RESPONSE -> {
                 this.dataOut.writeUTF("Response|$msg|$srcClient|${timestamp}")
+            }
+            TypeMessage.FAILURE ->{
+                this.dataOut.writeUTF("Failure|$timestamp")
+            }
+            TypeMessage.SUCCESS ->{
+                this.dataOut.writeUTF("Success|$timestamp")
             }
             else -> {
                 throw Exception("Error type")
@@ -98,6 +99,7 @@ class Server(private val port: Int){
 
     private fun processMessage(client: Client){
         val msgList = client.dataIn.readUTF().split("|")
+        println(msgList)
         when(msgList[0]){
             "Send"->{
                 val text = msgList[1]
@@ -126,16 +128,36 @@ class Server(private val port: Int){
                 val password = msgList[2]
                 client.setName(name)
                 client.setPassword(password)
-                if (!this.dbClients.isExistClient(name)){
-                    this.dbClients.insertClient(DataClientServerModel(name,password))
-                }else{
-                    if (this.dbMessages.isExistMessages(name)){
+                if(dbClients.isClientPasswordCorrect(name,password)){
+                    if (this.dbMessages.isExistMessages(name) ){
                         val messageList = this.dbMessages.getAllClientMessages(name)
                         messageList.forEach{message -> client.sendMessage(TypeMessage.RESPONSE, message.text,message.srcClientName,message.timestamp)}
                         this.dbMessages.deleteItems(name)
                     }
+                    println("User ${client.getClientName()} successfully connected")
+                }else{
+                    client.sendMessage(TypeMessage.BYE)
                 }
-                println("User ${client.getClientName()} successfully registered")
+
+            }
+            "Register"->{
+                val name = msgList[1]
+                val password = msgList[2]
+                if (dbClients.isExistClient(name)){
+                    client.sendMessage(TypeMessage.FAILURE)
+                }else{
+                    client.sendMessage(TypeMessage.SUCCESS)
+                    dbClients.insertClient(DataClientServerModel(name,password))
+                }
+            }
+            "Login"->{
+                val name = msgList[1]
+                val password = msgList[2]
+                if (dbClients.isClientPasswordCorrect(name,password)){
+                    client.sendMessage(TypeMessage.SUCCESS)
+                }else{
+                    client.sendMessage(TypeMessage.FAILURE)
+                }
             }
         }
 
@@ -169,5 +191,4 @@ class Server(private val port: Int){
 
 fun main() {
   Server(5001).run()
-
 }
