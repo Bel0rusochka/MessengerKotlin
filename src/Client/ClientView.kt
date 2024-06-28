@@ -1,4 +1,4 @@
-import Client.Client
+import Client.ClientController
 import javafx.application.Application
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -22,7 +22,7 @@ const val RED_STYLE = "-fx-background-color: #f44336; -fx-text-fill: white; -fx-
 const val GRAY_STYLE = "-fx-background-color: gray; -fx-text-fill: white; -fx-font-weight: bold;"
 
 class MainApp: Application() {
-    private var client:Client? = null
+    private var clientController:ClientController? = null
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
     private val bottomStatus = Label("None")
@@ -88,8 +88,8 @@ class MainApp: Application() {
     private fun messengerScene(primaryStage: Stage){
         val thread2 = Thread{ this.runClient() }
         val userNameLabel = Label("Messages")
-        client!!.connectDb()
-        userList.items.addAll(client!!.getAllConverClientNames())
+        clientController!!.connectDb()
+        userList.items.addAll(clientController!!.getAllConverClientNames())
 
         val messageInput = TextField()
         messageInput.promptText = "Write a message..."
@@ -113,7 +113,7 @@ class MainApp: Application() {
 
         val logoutButton = Button("Logout")
         logoutButton.style = RED_STYLE
-        val activeUserLabel = Label("User name is: ${client!!.getName()}")
+        val activeUserLabel = Label("User name is: ${clientController!!.getName()}")
         activeUserLabel.font = Font.font(18.0)
         val topBox = HBox(5.0,logoutButton, activeUserLabel)
 
@@ -134,7 +134,7 @@ class MainApp: Application() {
         deleteUserButton.setOnAction {
             val selectedUser = userList.selectionModel.selectedItem
             if (selectedUser != null) {
-                client!!.deleteAllMessagesWithConvClient(selectedUser)
+                clientController!!.deleteAllMessagesWithConvClient(selectedUser)
                 messageList.items.clear()
                 userNameLabel.text = "Messages"
                 userList.items.remove(selectedUser)
@@ -144,8 +144,8 @@ class MainApp: Application() {
         sendButton.setOnAction {
             val selectedUser = userList.selectionModel.selectedItem
             val messageText = messageInput.text
-            if (client!!.getConnectStatus()) {
-                client!!.sendMessage(TypeMessage.SEND, messageText, selectedUser)
+            if (clientController!!.getConnectStatus()) {
+                clientController!!.sendMessage(TypeMessage.SEND, messageText, selectedUser)
                 loadMessagesForUser()
                 messageInput.clear()
             }else{
@@ -161,7 +161,7 @@ class MainApp: Application() {
 
         logoutButton.setOnAction {
             thread2.interrupt()
-            client!!.closeDB()
+            clientController!!.closeDB()
             Platform.runLater{
                 userList.items.clear()
                 messageList.items.clear()
@@ -197,7 +197,7 @@ class MainApp: Application() {
 
         primaryStage.setOnCloseRequest {
             thread2.interrupt()
-            client!!.closeDB()
+            clientController!!.closeDB()
         }
     }
 
@@ -262,10 +262,10 @@ class MainApp: Application() {
 
     private fun loginScene(primaryStage: Stage) {
         val userAction = createUserForm(primaryStage, "Login!") { username, password ->
-            val newClient = Client(username, password)
-            if (newClient.loginUser()) {
-                client = newClient
-                bottomStatus.text = "Connection status: ${if (client!!.getConnectStatus()) "Connected" else "Disconnected"}"
+            val newClientController = ClientController(username, password)
+            if (newClientController.loginUser()) {
+                clientController = newClientController
+                bottomStatus.text = "Connection status: ${if (clientController!!.getConnectStatus()) "Connected" else "Disconnected"}"
                 messengerScene(primaryStage)
             } else {
                 val alert = Alert(AlertType.ERROR)
@@ -285,10 +285,10 @@ class MainApp: Application() {
 
     private fun registrationScene(primaryStage: Stage) {
         val userAction = createUserForm(primaryStage, "Register!") { username, password ->
-            val newClient = Client(username, password)
-            if (newClient.registerUser()) {
-                client = newClient
-                bottomStatus.text = "Connection status: ${if (client!!.getConnectStatus()) "Connected" else "Disconnected"}"
+            val newClientController = ClientController(username, password)
+            if (newClientController.registerUser()) {
+                clientController = newClientController
+                bottomStatus.text = "Connection status: ${if (clientController!!.getConnectStatus()) "Connected" else "Disconnected"}"
                 messengerScene(primaryStage)
             } else {
                 val alert = Alert(Alert.AlertType.ERROR)
@@ -311,12 +311,12 @@ class MainApp: Application() {
 
             while (!Thread.currentThread().isInterrupted){
                     sleep(1000)
-                if(client!!.getConnectStatus()){
+                if(clientController!!.getConnectStatus()){
                     communicationWithServer()
                 }else{
                     Platform.runLater {
-                        client!!.startConnection()
-                        bottomStatus.text="Connection status: ${if (client!!.getConnectStatus()) "Connected" else "Disconnected"}"
+                        clientController!!.startConnection()
+                        bottomStatus.text="Connection status: ${if (clientController!!.getConnectStatus()) "Connected" else "Disconnected"}"
                     }
                 }
             }
@@ -329,9 +329,9 @@ class MainApp: Application() {
         if(userList.selectionModel.selectedItem!=null){
             val selectedUser = userList.selectionModel.selectedItem
             messageList.items.clear()
-            messageList.items.addAll(client!!.getAllMessageWith(selectedUser))
+            messageList.items.addAll(clientController!!.getAllMessageWith(selectedUser))
         }
-        client!!.getAllConverClientNames().forEach { name ->
+        clientController!!.getAllConverClientNames().forEach { name ->
             if (!userList.items.contains(name)) {
                 userList.items.add(name)
             }
@@ -341,8 +341,8 @@ class MainApp: Application() {
     private fun communicationWithServer(){
             try {
                 while (!Thread.currentThread().isInterrupted) {
-                    if (this.client!!.isMessageFromServer()) {
-                        when (this.client!!.processMessageFromServer()) {
+                    if (this.clientController!!.isMessageFromServer()) {
+                        when (this.clientController!!.processMessageFromServer()) {
                             "Bye" -> {
                                 break
                             }
@@ -362,7 +362,7 @@ class MainApp: Application() {
                     }
                 }
             }finally {
-                client!!.closeConnection()
+                clientController!!.closeConnection()
             }
     }
 

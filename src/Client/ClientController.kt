@@ -8,7 +8,7 @@ import java.sql.Timestamp
 import java.text.SimpleDateFormat
 
 
-class Client(private val name: String, private val password: String) {
+class ClientController(private val name: String, private val password: String) {
     private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
@@ -43,7 +43,7 @@ class Client(private val name: String, private val password: String) {
         }
     }
     fun connectDb(){
-        dbMessages = ClientMessageModel("${name}Message.db")
+        dbMessages = ClientMessageModel("/data/${name}Message.db")
     }
 
     fun startConnection(){
