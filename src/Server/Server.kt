@@ -99,7 +99,6 @@ class Server(private val port: Int){
 
     private fun processMessage(client: Client){
         val msgList = client.dataIn.readUTF().split("|")
-        println(msgList)
         when(msgList[0]){
             "Send"->{
                 val text = msgList[1]
