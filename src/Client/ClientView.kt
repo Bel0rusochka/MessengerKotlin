@@ -12,14 +12,20 @@ import javafx.scene.layout.Priority
 import javafx.application.Platform
 import javafx.scene.control.Alert
 import javafx.scene.control.Alert.AlertType
+import javafx.scene.text.Font
+import javafx.scene.text.FontWeight
+import javafx.scene.text.TextAlignment
 import java.lang.Thread.sleep
 
+const val GREEN_STYLE = "-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"
+const val RED_STYLE = "-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold;"
+const val GRAY_STYLE = "-fx-background-color: gray; -fx-text-fill: white; -fx-font-weight: bold;"
 
 class MainApp: Application() {
-    private val client = Client("A","229")
+    private var client:Client? = null
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
-    private val bottomStatus = Label("Connection status: ${if (client.getConnectStatus()) "Connected" else "Disconnected"}")
+    private val bottomStatus = Label("None")
     private var isLogged = false
 
     override fun start(primaryStage: Stage) {
@@ -29,33 +35,43 @@ class MainApp: Application() {
 
     private fun showInitialScene(primaryStage: Stage) {
         if (!isLogged) {
-            authorizationScene(primaryStage)
+            mainMenuScene(primaryStage)
         } else {
             messengerScene(primaryStage)
         }
     }
 
-    private fun authorizationScene(primaryStage: Stage) {
+    private fun mainMenuScene(primaryStage: Stage) {
+        val title = Label("Welcome to the App!")
+        title.font = Font.font("Arial", FontWeight.BOLD, 24.0)
+        title.textAlignment = TextAlignment.CENTER
+
         val registrationButton = Button("Registration")
         val loginButton = Button("Login")
 
-        val buttonWidth = 100.0
+        registrationButton.style = GRAY_STYLE
+        loginButton.style = GRAY_STYLE
+
+        val buttonWidth = 200.0
         val buttonHeight = 40.0
-        registrationButton.prefWidth = buttonWidth
-        loginButton.prefWidth = buttonWidth
+
         registrationButton.prefHeight = buttonHeight
         loginButton.prefHeight = buttonHeight
+        registrationButton.prefWidth = buttonWidth
+        loginButton.prefWidth = buttonWidth
 
-        val userLoginRegistrationButtons = VBox(registrationButton, loginButton)
+        val userLoginRegistrationButtons = VBox(10.0,title,registrationButton, loginButton)
         userLoginRegistrationButtons.alignment = Pos.CENTER
+        userLoginRegistrationButtons.padding = Insets(20.0)
+
         registrationButton.setOnAction {
-            isLogged = true
+
             Platform.runLater {
                 registrationScene(primaryStage)
             }
         }
         loginButton.setOnAction {
-            isLogged = true
+
             Platform.runLater {
                 loginScene(primaryStage)
             }
@@ -63,32 +79,43 @@ class MainApp: Application() {
 
         val borderPane = BorderPane()
         borderPane.center = userLoginRegistrationButtons
+
         val scene = Scene(borderPane, 800.0, 400.0)
         primaryStage.scene = scene
         primaryStage.show()
     }
 
     private fun messengerScene(primaryStage: Stage){
-
+        val thread2 = Thread{ this.runClient() }
         val userNameLabel = Label("Messages")
-        userList.items.addAll(client.getAllConverClientNames())
+        client!!.connectDb()
+        userList.items.addAll(client!!.getAllConverClientNames())
 
         val messageInput = TextField()
+        messageInput.promptText = "Write a message..."
         val sendButton = Button("Send")
+        sendButton.style = GRAY_STYLE
+
         val messageInputBox = HBox(messageInput, sendButton)
         messageInputBox.alignment = Pos.CENTER
         messageInputBox.isVisible = false
         HBox.setHgrow(messageInput, Priority.ALWAYS)
 
-
         val userNameInput = TextField()
+        userNameInput.promptText = "Search user"
         val addUserButton= Button("Add")
+        addUserButton.style = GRAY_STYLE
         val deleteUserButton = Button("Delete")
-        deleteUserButton.style ="-fx-background-color: #FF4040; "
+        deleteUserButton.style = RED_STYLE
         val userNameInputBox = HBox(userNameInput, addUserButton,deleteUserButton)
         userNameInputBox.alignment = Pos.CENTER
         HBox.setHgrow(userNameInput, Priority.ALWAYS)
 
+        val logoutButton = Button("Logout")
+        logoutButton.style = RED_STYLE
+        val activeUserLabel = Label("User name is: ${client!!.getName()}")
+        activeUserLabel.font = Font.font(18.0)
+        val topBox = HBox(5.0,logoutButton, activeUserLabel)
 
         userList.selectionModel.selectedItemProperty().addListener { _, _, newValue ->
             messageInputBox.isVisible = newValue != null
@@ -98,7 +125,7 @@ class MainApp: Application() {
 
         addUserButton.setOnAction {
             val userName = userNameInput.text.trim()
-            if(userName!="" && !userList.items.contains(userName)) {
+            if(userName.isNotEmpty() && !userList.items.contains(userName)) {
                 userList.items.add(userName)
             }
             userNameInput.clear()
@@ -107,8 +134,8 @@ class MainApp: Application() {
         deleteUserButton.setOnAction {
             val selectedUser = userList.selectionModel.selectedItem
             if (selectedUser != null) {
-                this.client.deleteAllMessagesWithConvClient(selectedUser)
-                this.messageList.items.clear()
+                client!!.deleteAllMessagesWithConvClient(selectedUser)
+                messageList.items.clear()
                 userNameLabel.text = "Messages"
                 userList.items.remove(selectedUser)
             }
@@ -117,10 +144,28 @@ class MainApp: Application() {
         sendButton.setOnAction {
             val selectedUser = userList.selectionModel.selectedItem
             val messageText = messageInput.text
-            if (selectedUser != null) {
-                this.client.sendMessage(TypeMessage.SEND, messageText, selectedUser)
-                this.loadMessagesForUser()
+            if (client!!.getConnectStatus()) {
+                client!!.sendMessage(TypeMessage.SEND, messageText, selectedUser)
+                loadMessagesForUser()
                 messageInput.clear()
+            }else{
+                Platform.runLater{
+                    val alert = Alert(AlertType.WARNING)
+                    alert.title = "WARNING!"
+                    alert.headerText = "Oops, no connection!"
+                    alert.contentText = "Wait for to reconnect to the server."
+                    alert.showAndWait()
+                }
+            }
+        }
+
+        logoutButton.setOnAction {
+            thread2.interrupt()
+            client!!.closeDB()
+            Platform.runLater{
+                userList.items.clear()
+                messageList.items.clear()
+                mainMenuScene(primaryStage)
             }
         }
 
@@ -130,15 +175,13 @@ class MainApp: Application() {
         VBox.setVgrow(messageList, Priority.ALWAYS)
 
         val usersPane = VBox()
-        usersPane.children.addAll(Label("Users"),userNameInputBox, userList)
+        usersPane.children.addAll(userNameInputBox, userList)
         usersPane.padding = Insets(5.0, 10.0,5.0, 10.0)
         VBox.setVgrow(userList, Priority.ALWAYS)
 
-        val lb = Label("My name is: ${client.getName()}")
-        lb.padding = Insets(0.0, 10.0, 0.0, 10.0)
-
+        topBox.padding = Insets(0.0, 10.0, 0.0, 10.0)
         val borderPane = BorderPane()
-        borderPane.top = lb
+        borderPane.top = topBox
         borderPane.left = usersPane
         borderPane.center = messagesPane
 
@@ -149,22 +192,118 @@ class MainApp: Application() {
         primaryStage.scene = scene
 
         primaryStage.show()
-        val thread2 = Thread{ this.runClient() }
+
         thread2.start()
 
         primaryStage.setOnCloseRequest {
-
             thread2.interrupt()
-            client.closeDB()
+            client!!.closeDB()
         }
     }
 
-    private fun loginScene(primaryStage: Stage){
+    private fun createUserForm(
+        primaryStage: Stage,
+        buttonText: String,
+        action: (String, String) -> Unit,
+    ): VBox {
+        val titleLabel = Label(if (buttonText == "Login!") "Login" else "Register")
+        titleLabel.font = Font.font("Arial", FontWeight.BOLD, 24.0)
 
+        val inputUserName = TextField()
+        inputUserName.promptText = "Username"
+        val inputPassword = PasswordField()
+        inputPassword.promptText = "Password"
+        val button = Button(buttonText)
+        val backButton = Button("Back")
+
+        val width = 200.0
+        val height = 40.0
+
+        inputUserName.maxWidth = width
+        inputPassword.maxWidth = width
+        button.maxWidth = width
+        backButton.maxWidth = width
+
+        inputUserName.prefHeight = height
+        inputPassword.prefHeight = height
+        button.prefHeight = height
+        backButton.prefHeight = height
+
+        button.style = GREEN_STYLE
+        backButton.style = RED_STYLE
+
+        val userAction = VBox(10.0, titleLabel, inputUserName, inputPassword, button, backButton)
+        userAction.alignment = Pos.CENTER
+
+        button.setOnAction {
+            val username = inputUserName.text
+            val password = inputPassword.text
+            Platform.runLater {
+                if (username.isNotEmpty() && password.isNotEmpty()) {
+                    action(username, password)
+                } else {
+                    val alert = Alert(AlertType.WARNING)
+                    alert.title = "WARNING!"
+                    alert.headerText = "Oops!"
+                    alert.contentText = "User name field or password is empty!"
+                    alert.showAndWait()
+                }
+            }
+        }
+
+        backButton.setOnAction {
+            Platform.runLater {
+                mainMenuScene(primaryStage)
+            }
+        }
+
+        return userAction
     }
 
-    private fun registrationScene(primaryStage: Stage){
+    private fun loginScene(primaryStage: Stage) {
+        val userAction = createUserForm(primaryStage, "Login!") { username, password ->
+            val newClient = Client(username, password)
+            if (newClient.loginUser()) {
+                client = newClient
+                bottomStatus.text = "Connection status: ${if (client!!.getConnectStatus()) "Connected" else "Disconnected"}"
+                messengerScene(primaryStage)
+            } else {
+                val alert = Alert(AlertType.ERROR)
+                alert.title = "ERROR"
+                alert.headerText = "Uh, we can't login the user!"
+                alert.contentText = "Name or password is incorrect"
+                alert.showAndWait()
+            }
+        }
 
+        val borderPane = BorderPane()
+        borderPane.center = userAction
+        val scene = Scene(borderPane, 800.0, 400.0)
+        primaryStage.scene = scene
+        primaryStage.show()
+    }
+
+    private fun registrationScene(primaryStage: Stage) {
+        val userAction = createUserForm(primaryStage, "Register!") { username, password ->
+            val newClient = Client(username, password)
+            if (newClient.registerUser()) {
+                client = newClient
+                bottomStatus.text = "Connection status: ${if (client!!.getConnectStatus()) "Connected" else "Disconnected"}"
+                messengerScene(primaryStage)
+            } else {
+                val alert = Alert(Alert.AlertType.ERROR)
+                alert.title = "ERROR"
+                alert.headerText = "Uh, the user already exists. You cannot register user with this user name!"
+                alert.contentText = "Try a different user name or try to login."
+                alert.showAndWait()
+            }
+        }
+
+        val borderPane = BorderPane()
+        borderPane.center = userAction
+        val scene = Scene(borderPane, 800.0, 400.0)
+        primaryStage.scene = scene
+        primaryStage.show()
     }
 
     private fun runClient(){
@@ -172,12 +311,12 @@ class MainApp: Application() {
 
             while (!Thread.currentThread().isInterrupted){
                     sleep(1000)
-                if(client.getConnectStatus()){
+                if(client!!.getConnectStatus()){
                     communicationWithServer()
                 }else{
                     Platform.runLater {
-                        client.startConnection()
-                        bottomStatus.text="Connection status: ${if (client.getConnectStatus()) "Connected" else "Disconnected"}"
+                        client!!.startConnection()
+                        bottomStatus.text="Connection status: ${if (client!!.getConnectStatus()) "Connected" else "Disconnected"}"
                     }
                 }
             }
@@ -190,9 +329,9 @@ class MainApp: Application() {
         if(userList.selectionModel.selectedItem!=null){
             val selectedUser = userList.selectionModel.selectedItem
             messageList.items.clear()
-            messageList.items.addAll(client.getAllMessageWith(selectedUser))
+            messageList.items.addAll(client!!.getAllMessageWith(selectedUser))
         }
-        client.getAllConverClientNames().forEach { name ->
+        client!!.getAllConverClientNames().forEach { name ->
             if (!userList.items.contains(name)) {
                 userList.items.add(name)
             }
@@ -202,8 +341,8 @@ class MainApp: Application() {
     private fun communicationWithServer(){
             try {
                 while (!Thread.currentThread().isInterrupted) {
-                    if (this.client.isMessageFromServer()) {
-                        when (this.client.processMessageFromServer()) {
+                    if (this.client!!.isMessageFromServer()) {
+                        when (this.client!!.processMessageFromServer()) {
                             "Bye" -> {
                                 break
                             }
@@ -223,7 +362,7 @@ class MainApp: Application() {
                     }
                 }
             }finally {
-                this.client.closeConnection()
+                client!!.closeConnection()
             }
     }
 
@@ -231,7 +370,4 @@ class MainApp: Application() {
 
 fun main() {
     Application.launch(MainApp::class.java)
-//    val client = Client("asd","229")
-//    print(client.registerUser())
-//    print(client.loginUser())
 }

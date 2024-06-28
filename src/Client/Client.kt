@@ -12,7 +12,7 @@ class Client(private val name: String, private val password: String) {
     private var socket: Socket? = null
     private var dataIn: DataInputStream? = null
     private var dataOut: DataOutputStream? = null
-    private val dbMessages = ClientMessageModel("${name}Message.db")
+    private var dbMessages:ClientMessageModel? = null
     private var connectFlag = false
 
     fun getName():String{
@@ -42,11 +42,15 @@ class Client(private val name: String, private val password: String) {
            return false
         }
     }
+    fun connectDb(){
+        dbMessages = ClientMessageModel("${name}Message.db")
+    }
 
     fun startConnection(){
         return try {
             initConnection()
             sendMessage(TypeMessage.START)
+
         } catch (e: IOException) {
             println("Connection Failed: ${e.message}")
         }
@@ -77,7 +81,7 @@ class Client(private val name: String, private val password: String) {
     }
 
     fun closeDB() {
-        this.dbMessages.close()
+        dbMessages!!.close()
     }
 
     private fun transformStringToTimestamp(date: String): Timestamp{
@@ -100,7 +104,7 @@ class Client(private val name: String, private val password: String) {
 
                 TypeMessage.SEND -> {
                     this.dataOut?.writeUTF("Send|$msg|$to|$timestamp")
-                    dbMessages.insertMessage(DataMessageClientModel(timestamp, msg!!, to!!, "Send"))
+                    dbMessages!!.insertMessage(DataMessageClientModel(timestamp, msg!!, to!!, "Send"))
                 }
 
                 TypeMessage.REGISTER -> {
@@ -138,7 +142,7 @@ class Client(private val name: String, private val password: String) {
                 if(srcClientName=="Server"){
                     return "Unfindable"
                 }else{
-                    dbMessages.insertMessage(DataMessageClientModel(timestamp,text,srcClientName,"Response"))
+                    dbMessages!!.insertMessage(DataMessageClientModel(timestamp,text,srcClientName,"Response"))
                     return "Response"
                 }
             }
@@ -150,15 +154,15 @@ class Client(private val name: String, private val password: String) {
     }
 
     fun getAllMessageWith(clientName: String): List<String>{
-        return this.dbMessages.getAllClientMessages(clientName,this.getName())
+        return dbMessages!!.getAllClientMessages(clientName,getName())
     }
 
     fun deleteAllMessagesWithConvClient(clientName: String){
-        this.dbMessages.deleteAllMessagesWithClient(clientName)
+        dbMessages!!.deleteAllMessagesWithClient(clientName)
     }
 
     fun getAllConverClientNames():List<String>{
-        return this.dbMessages.getAllClientConverNames()
+        return dbMessages!!.getAllClientConverNames()
     }
 
 }
