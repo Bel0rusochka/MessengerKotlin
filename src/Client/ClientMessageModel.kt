@@ -59,7 +59,7 @@ class ClientMessageModel(private val dbName: String){
         }
     }
 
-    fun getAllClientMessages(clientConverName: String, clintOwnName: String): List<String> {
+    fun getAllClientMessages(clientConverName: String, clintOwnName: String, operation: (String, String) -> String, strKey:String): List<String> {
         val sql = "SELECT timestamp,text,clientConverName,type FROM  messages WHERE clientConverName = ? ORDER BY timestamp"
         val messages = mutableListOf<String>()
         try{
@@ -72,7 +72,7 @@ class ClientMessageModel(private val dbName: String){
                 val localDateTime = timestampFromDB.toLocalDateTime()
                 val formattedDateTime = localDateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
 
-                val textFromDB = tableData.getString("text")
+                val textFromDB = operation(tableData.getString("text"), strKey)
                 val clientConverNameFromDB = tableData.getString("clientConverName")
                 val typeFromDB = tableData.getString("type")
 
