@@ -2,6 +2,7 @@ package Server
 import java.sql.SQLException
 
 class ServerClientModel(dbName: String): AbstractDbModel(dbName){
+    private val dbServerCrypto = ServerCrypto()
     override fun getSQLQuery():String{
         return """
             CREATE TABLE IF NOT EXISTS clients (
@@ -15,8 +16,8 @@ class ServerClientModel(dbName: String): AbstractDbModel(dbName){
         val sql = "INSERT INTO clients(name,password) VALUES(?,?)"
         try {
             val stmt = dbConnection?.prepareStatement(sql)
-            stmt?.setString(1, item.name)
-            stmt?.setString(2, item.password)
+            stmt?.setString(1, dbServerCrypto.encrypt(item.name,dbServerCrypto.CLIENT_DB_KEY))
+            stmt?.setString(2, dbServerCrypto.encrypt(item.password,dbServerCrypto.CLIENT_DB_KEY))
             stmt?.executeUpdate()
         }catch(e: SQLException) {
             println(e.message)
@@ -28,7 +29,7 @@ class ServerClientModel(dbName: String): AbstractDbModel(dbName){
         val sql = "SELECT name FROM clients WHERE name = ?"
         try {
             val stmt = dbConnection?.prepareStatement(sql)
-            stmt?.setString(1, clientName)
+            stmt?.setString(1, dbServerCrypto.encrypt(clientName,dbServerCrypto.CLIENT_DB_KEY))
             val tableData = stmt?.executeQuery()
             tableData!!.getString("name")
             return true
@@ -41,8 +42,8 @@ class ServerClientModel(dbName: String): AbstractDbModel(dbName){
         val sql = "SELECT name FROM clients WHERE name = ? AND password = ?"
         try {
             val stmt = dbConnection?.prepareStatement(sql)
-            stmt?.setString(1, clientName)
-            stmt?.setString(2, password)
+            stmt?.setString(1, dbServerCrypto.encrypt(clientName,dbServerCrypto.CLIENT_DB_KEY))
+            stmt?.setString(2, dbServerCrypto.encrypt(password,dbServerCrypto.CLIENT_DB_KEY))
             val tableData = stmt?.executeQuery()
             tableData!!.getString("name")
             return true

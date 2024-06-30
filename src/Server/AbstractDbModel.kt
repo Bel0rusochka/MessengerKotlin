@@ -15,7 +15,7 @@ abstract class AbstractDbModel(private val dbName: String){
 
     private fun connect() {
         try {
-            dbConnection = DriverManager.getConnection("jdbc:sqlite:src/Server/$dbName")
+            dbConnection = DriverManager.getConnection("jdbc:sqlite:src/Server/data/$dbName")
         } catch (e: SQLException) {
             println(e.message)
         }

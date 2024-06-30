@@ -7,15 +7,18 @@ import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import TypeMessage
-import java.util.Date
 import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.collections.ArrayList
+
 
 
 class ExitException(message: String) : Exception(message)
 
-class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataOutputStream){
+class ServerClient(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataOutputStream){
     private var userName: String = ""
     private var password: String = ""
+    private var serverClientCrypto = ServerCrypto()
 
     fun setName(name: String){
         this.userName = name
@@ -30,16 +33,16 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
     fun sendMessage(typeMessage: TypeMessage, msg: String?=null,srcClient: String?=null, timestamp: Timestamp=Timestamp(Date().time)){
         when (typeMessage) {
             TypeMessage.BYE -> {
-                this.dataOut.writeUTF("Bye|$timestamp")
+                this.dataOut.writeUTF(serverClientCrypto.encrypt("Bye|$timestamp", serverClientCrypto.CLIENT_SERVER_KEY))
             }
             TypeMessage.RESPONSE -> {
-                this.dataOut.writeUTF("Response|$msg|$srcClient|${timestamp}")
+                this.dataOut.writeUTF(serverClientCrypto.encrypt("Response|$msg|$srcClient|${timestamp}",serverClientCrypto.CLIENT_SERVER_KEY))
             }
             TypeMessage.FAILURE ->{
-                this.dataOut.writeUTF("Failure|$timestamp")
+                this.dataOut.writeUTF(serverClientCrypto.encrypt("Failure|$timestamp", serverClientCrypto.CLIENT_SERVER_KEY))
             }
             TypeMessage.SUCCESS ->{
-                this.dataOut.writeUTF("Success|$timestamp")
+                this.dataOut.writeUTF(serverClientCrypto.encrypt("Success|$timestamp", serverClientCrypto.CLIENT_SERVER_KEY))
             }
             else -> {
                 throw Exception("Error type")
@@ -49,27 +52,28 @@ class Client(val socket: Socket, val dataIn: DataInputStream, val dataOut: DataO
 }
 
 class Server(private val port: Int){
-    private var clientsArray: ArrayList<Client> = arrayListOf()
+    private var clientsArray: ArrayList<ServerClient> = arrayListOf()
     private val serverSocket = ServerSocket(this.port)
     private val dbClients = ServerClientModel("ServerClients.db")
     private val dbMessages = ServerMessageModel("ServerMessage.db")
+    private val serverCrypto = ServerCrypto()
 
-    private fun connect(): Client{
+
+    private fun connect(): ServerClient{
         val clientSocket = this.serverSocket.accept()
-        val newClient = Client(clientSocket,DataInputStream(clientSocket.getInputStream()), DataOutputStream(clientSocket.getOutputStream()))
-        this.processMessage(newClient)
-        this.clientsArray.add(newClient)
-        return newClient
+        val newServerClient = ServerClient(clientSocket,DataInputStream(clientSocket.getInputStream()), DataOutputStream(clientSocket.getOutputStream()))
+        this.processMessage(newServerClient)
+        this.clientsArray.add(newServerClient)
+        return newServerClient
     }
 
-    private fun closeConnection(client: Client){
+    private fun closeConnection(serverClient: ServerClient){
         try {
-           if (!client.socket.isClosed){
-               client.dataIn.close()
-               client.dataOut.close()
-               client.socket.close()
-
-               this.clientsArray.remove(client)
+           if (!serverClient.socket.isClosed){
+               serverClient.dataIn.close()
+               serverClient.dataOut.close()
+               serverClient.socket.close()
+               this.clientsArray.remove(serverClient)
            }
 
         } catch (e: IOException) {
@@ -84,7 +88,8 @@ class Server(private val port: Int){
         this.dbClients.close()
         this.dbMessages.close()
     }
-    private fun findActiveClient(name: String): Client?{
+
+    private fun findActiveClient(name: String): ServerClient?{
         clientsArray.forEach {
             if(it.getClientName() == name) return it
         }
@@ -97,45 +102,46 @@ class Server(private val port: Int){
         return Timestamp(parsedDate.time)
     }
 
-    private fun processMessage(client: Client){
-        val msgList = client.dataIn.readUTF().split("|")
+    private fun processMessage(serverClient: ServerClient){
+        val msg = serverCrypto.decrypt(serverClient.dataIn.readUTF(), serverCrypto.CLIENT_SERVER_KEY)
+        val msgList = msg.split("|")
         when(msgList[0]){
             "Send"->{
                 val text = msgList[1]
                 val dstClientName = msgList[2]
                 val timestamp = transformStringToTimestamp(msgList[3])
-                val srcClientName = client.getClientName()
+                val srcClientName = serverClient.getClientName()
 
                 if(!this.dbClients.isExistClient(dstClientName)){
-                    client.sendMessage(TypeMessage.RESPONSE,"Can't find destination user","Server",timestamp)
+                    serverClient.sendMessage(TypeMessage.RESPONSE,"Can't find destination user","Server",timestamp)
                 }else{
                     val dstClient = findActiveClient(dstClientName)
                     if(dstClient==null){
-                        this.dbMessages.insertMessage(DataMessageServerModel(timestamp,text,dstClientName, srcClientName))
+                        this.dbMessages.insertMessage(DataMessageServerModel(timestamp,text,dstClientName,srcClientName))
                     }else{
-                        dstClient.sendMessage(TypeMessage.RESPONSE, text, client.getClientName(),timestamp)
+                        dstClient.sendMessage(TypeMessage.RESPONSE, text, serverClient.getClientName(),timestamp)
                     }
 
                 }
             }
             "Bye"->{
-                println("Bye, bye ${client.getClientName()}")
-                throw ExitException("Client ${client.getClientName()} has disconnected.")
+                println("Bye, bye ${serverClient.getClientName()}")
+                throw ExitException("Client ${serverClient.getClientName()} has disconnected.")
             }
             "Start"->{
                 val name = msgList[1]
                 val password = msgList[2]
-                client.setName(name)
-                client.setPassword(password)
+                serverClient.setName(name)
+                serverClient.setPassword(password)
                 if(dbClients.isClientPasswordCorrect(name,password)){
                     if (this.dbMessages.isExistMessages(name) ){
                         val messageList = this.dbMessages.getAllClientMessages(name)
-                        messageList.forEach{message -> client.sendMessage(TypeMessage.RESPONSE, message.text,message.srcClientName,message.timestamp)}
+                        messageList.forEach{message -> serverClient.sendMessage(TypeMessage.RESPONSE, message.text,message.srcClientName,message.timestamp)}
                         this.dbMessages.deleteItems(name)
                     }
-                    println("User ${client.getClientName()} successfully connected")
+                    println("User ${serverClient.getClientName()} successfully connected")
                 }else{
-                    client.sendMessage(TypeMessage.BYE)
+                    serverClient.sendMessage(TypeMessage.BYE)
                 }
 
             }
@@ -143,9 +149,9 @@ class Server(private val port: Int){
                 val name = msgList[1]
                 val password = msgList[2]
                 if (dbClients.isExistClient(name)){
-                    client.sendMessage(TypeMessage.FAILURE)
+                    serverClient.sendMessage(TypeMessage.FAILURE)
                 }else{
-                    client.sendMessage(TypeMessage.SUCCESS)
+                    serverClient.sendMessage(TypeMessage.SUCCESS)
                     dbClients.insertClient(DataClientServerModel(name,password))
                 }
             }
@@ -153,13 +159,12 @@ class Server(private val port: Int){
                 val name = msgList[1]
                 val password = msgList[2]
                 if (dbClients.isClientPasswordCorrect(name,password)){
-                    client.sendMessage(TypeMessage.SUCCESS)
+                    serverClient.sendMessage(TypeMessage.SUCCESS)
                 }else{
-                    client.sendMessage(TypeMessage.FAILURE)
+                    serverClient.sendMessage(TypeMessage.FAILURE)
                 }
             }
         }
-
     }
 
     fun run(){
