@@ -4,6 +4,7 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.*
 import TypeMessage
+import java.net.InetAddress
 import java.security.MessageDigest
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
@@ -92,7 +93,8 @@ class ClientController(private val name: String, private val password: String) {
 
     private fun initConnection() {
         this.socket = Socket()
-        this.socket!!.connect(InetSocketAddress("127.0.0.1",5001), 1000) // 54.160.173.83
+        val inetAddresses = InetAddress.getAllByName("ec2-107-23-114-67.compute-1.amazonaws.com")
+        this.socket!!.connect(InetSocketAddress(inetAddresses[0],5001), 1000)
         this.dataOut = DataOutputStream(socket!!.getOutputStream())
         this.dataIn = DataInputStream(socket!!.getInputStream())
         connectFlag = socket!!.isConnected
