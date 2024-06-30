@@ -21,7 +21,7 @@ const val GREEN_STYLE = "-fx-background-color: #4CAF50; -fx-text-fill: white; -f
 const val RED_STYLE = "-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold;"
 const val GRAY_STYLE = "-fx-background-color: gray; -fx-text-fill: white; -fx-font-weight: bold;"
 
-class MainApp: Application() {
+class ClientView: Application() {
     private var clientController:ClientController? = null
     private val messageList = ListView<String>()
     private val userList = ListView<String>()
@@ -369,5 +369,5 @@ class MainApp: Application() {
 }
 
 fun main() {
-    Application.launch(MainApp::class.java)
+    Application.launch(ClientView::class.java)
 }
