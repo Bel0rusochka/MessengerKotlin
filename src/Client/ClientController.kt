@@ -16,6 +16,7 @@ import javax.crypto.spec.SecretKeySpec
 const val CLIENT_CLIENT_KEY = "3766A913327C16289E9A142778C35"
 const val CLIENT_SERVER_KEY = "8992A6FA5C64DCD7FDBAA78F12A6B"
 const val CLIENT_DB_KEY = "8B72C16DAAED9D12F11E163396B68"
+const val DNS_NAME = "ec2-34-228-57-114.compute-1.amazonaws.com"
 
 
 class ClientController(private val name: String, private val password: String) {
@@ -93,7 +94,7 @@ class ClientController(private val name: String, private val password: String) {
 
     private fun initConnection() {
         this.socket = Socket()
-        val inetAddresses = InetAddress.getAllByName("ec2-107-23-114-67.compute-1.amazonaws.com")
+        val inetAddresses = InetAddress.getAllByName(DNS_NAME)
         this.socket!!.connect(InetSocketAddress(inetAddresses[0],5001), 1000)
         this.dataOut = DataOutputStream(socket!!.getOutputStream())
         this.dataIn = DataInputStream(socket!!.getInputStream())
