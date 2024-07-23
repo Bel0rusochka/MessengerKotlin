@@ -28,11 +28,15 @@ This means that the packet is decrypted on the server side, but the actual messa
 receiving user. All data, including passwords, logins, and packets, are stored in the database in an encrypted form.
 
 ## Example
-
-[1](img/1.jpg)
-[2](img/1.jpg)
-[3](img/1.jpg)
-[4](img/1.jpg)
-[5](img/1.jpg)
-[6](img/1.jpg)
-[7](img/1.jpg)
+1. Main menu
+![1](img/1.jpg)
+2. Registration new user
+![2](img/2.jpg)
+3. Andre's main screen
+![3](img/3.jpg)
+4. Log in user
+![4](img/4.jpg)
+5. Anton send message to Andrei
+![5](img/5.jpg)
+6. Andrei get message from Anton
+![6](img/6.jpg)
