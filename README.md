@@ -2,7 +2,7 @@
 
 ## Introduction
 This application was developed for hands-on learning of the TCP/IP model, client-server architecture, and message 
-encryption. The client part of the application was deployed on AWS using Docker to test its stability and correct 
+encryption. The server part of the application was deployed on AWS using Docker to test its stability and correct 
 operation. Additionally, Wireshark was used to verify the confidentiality of the TCP packet contents. 
 
 I used Kotlin to 
