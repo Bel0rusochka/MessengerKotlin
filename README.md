@@ -7,12 +7,12 @@ operation. Additionally, Wireshark was used to verify the confidentiality of the
 
 I used Kotlin to 
 implement the program. Although nowadays Kotlin is primarily used for developing mobile applications, but its advantage is 
-full interoperability with Java and its simpler, more concise syntax.
+full interoperability with Java, also it have simpler and more concise syntax.
 
-Also was developed a simple user Interface for the client part.
+In addition was developed a simple user Interface for the client part.
 
 ## Functionality
-The client part is designed in such a way that the user must register their account and then log in. 
+The client part is designed in such a way that the users must register their account and then log in. 
 Messages can only be sent to users who are already registered; if you try to send a message to a non-existent user, 
 you will receive a notification and the message will not be sent.
 
